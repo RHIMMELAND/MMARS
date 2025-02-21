@@ -24,7 +24,6 @@ class fmcw_radar:
         # Noise:
         self.__SNR = SNR #10       # signal-to-noise ratio [dB]
         self.__sigma = 10**(-self.__SNR/20) # noise standard deviation
-        print(self.__sigma)
         
         # Constants and derived values:
         self.__c = 3e8 # speed of light
@@ -38,7 +37,8 @@ class fmcw_radar:
         
         # Initialize the data array
         self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
-    
+        self.window = np.ones((1,self.__N_s))
+
     def show_parameters(self):
         f_IF_max = self.__R_max*2*self.__B/(self.__c*self.__T_c)
         print(f"Maximum unambiguous range: {self.__R_max:.2f} m")
@@ -63,6 +63,11 @@ class fmcw_radar:
 
     ##############################################################################################
 
+    def set_window(self, window):
+        
+
+    ##############################################################################################
+
     def measure_target(self, target_position, target_velocity):
         # Check if the target is a 2x1 matrix
         if target_position.shape != (2, 1):
@@ -82,10 +87,6 @@ class fmcw_radar:
             for rx_idx in range(len(self.__rx_antennas)):
                 phase_diff[tx_idx,rx_idx] = 2 * np.pi * (distances[tx_idx,rx_idx] / self.__lambda_c) #% (2 * np.pi) # calculates how many times the wavelength fits in the distance 
         phase_diff = phase_diff-phase_diff[0,0]
-
-        # print(phase_diff[0,0]-phase_diff[0,1])
-        # print( np.arcsin(wave_length*(phase_diff[0,0]-phase_diff[0,1]) /(2*np.pi*(self.__lambda_c/2))) /np.pi*180 )
-        # print( (wave_length*(4.06325307) /(2*np.pi*(self.__lambda_c/2))) /np.pi*180 )
 
         # Check if the velocity is a 2x1 matrix
         if target_velocity.shape != (2, 1):
@@ -108,7 +109,7 @@ class fmcw_radar:
 
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-                self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])#+np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))+1j*np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))
+                self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])+np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))+1j*np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))
     
     ##############################################################################################
     
@@ -130,7 +131,7 @@ class fmcw_radar:
             for rx_idx in RX_idxs:
                 range_fft_range = np.linspace(0, self.__R_max, self.__N_s)
                 range_fft = np.fft.fft(self.__raw_radar_data[tx_idx,rx_idx,0,:], n=self.__N_s)
-                plt.plot(range_fft_range, 10*np.log10(np.abs(range_fft[:self.__N_s])), label=f"TX{tx_idx} RX{rx_idx}")
+                plt.plot(range_fft_range, 20*np.log10(np.abs(range_fft[:self.__N_s])), label=f"TX{tx_idx} RX{rx_idx}")
         plt.ylabel("Amplitude [dB]")
         plt.xlabel("Range [m]")
         plt.title("Range FFT")
@@ -142,7 +143,7 @@ class fmcw_radar:
         range_fft_range = np.linspace(0, self.__R_max, self.__N_s)
         doppler_fft_range = np.linspace(-self.__v_max, self.__v_max, self.__N_c)
         range_doppler_fft_data = np.flip(np.fft.fftshift(np.fft.fft2(self.__raw_radar_data[0,0,:,:].T), axes=(1)), axis=0)
-        plt.imshow(10*np.log10(np.abs(range_doppler_fft_data)), extent=[doppler_fft_range[0], doppler_fft_range[-1], range_fft_range[0], range_fft_range[-1]], aspect='auto', cmap='hot')
+        plt.imshow(20*np.log10(np.abs(range_doppler_fft_data)), extent=[doppler_fft_range[0], doppler_fft_range[-1], range_fft_range[0], range_fft_range[-1]], aspect='auto', cmap='hot')
         plt.ylabel("Range [m]")
         plt.xlabel("Doppler [m/s]")
         plt.title("Range-Doppler FFT")
@@ -151,15 +152,19 @@ class fmcw_radar:
     def plot_range_angle_fft(self):
         plt.figure()
         range_fft_range = np.linspace(0, self.__R_max, self.__N_s)
-        angle_fft_range = np.linspace(np.degrees(-self.__angle_max), np.degrees(self.__angle_max), (len(self.__tx_antennas)*len(self.__rx_antennas)))
-        angle_fft_data = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), self.__N_s), dtype=complex)
+        angle_fft_range = np.arcsin(np.linspace(1, -1, 108))*180/np.pi
+        range_angle_fft_data = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), self.__N_s), dtype=complex)
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-                angle_fft_data[tx_idx*len(self.__rx_antennas)+rx_idx,:] = self.__raw_radar_data[tx_idx,rx_idx,0,:]
-        range_angle_fft = np.fft.fftshift(np.fft.fft2(angle_fft_data), axes=(0))
-        plt.imshow(10*np.log10(np.abs(range_angle_fft)), extent=[range_fft_range[0], range_fft_range[-1], angle_fft_range[0], angle_fft_range[-1]], aspect='auto', cmap='hot')
-        plt.xlabel("Range [m]")
-        plt.ylabel("Angle [degrees]")
+                range_angle_fft_data[tx_idx*len(self.__rx_antennas)+rx_idx,:] = self.__raw_radar_data[tx_idx,rx_idx,0,:]
+        # zero pad the angle fft data
+        range_angle_fft_data = np.pad(range_angle_fft_data, ((0,100), (0,0)), 'constant')
+        range_angle_fft = np.flip(np.fft.fftshift(np.fft.fft2(range_angle_fft_data.T), axes=(1)))
+        # max_val_idx = np.unravel_index(np.argmax(np.abs(range_angle_fft)), range_angle_fft.shape)
+        # print(angle_fft_range[max_val_idx[0]])
+        plt.imshow(20*np.log10(np.abs(range_angle_fft)), extent=[angle_fft_range[-1], angle_fft_range[0], range_fft_range[0], range_fft_range[-1]], aspect='auto', cmap='hot')
+        plt.xlabel("Angle [degrees]")
+        plt.ylabel("Range [m]")
         plt.title("Range-Angle FFT")
         plt.colorbar()
         plt.show() 
@@ -173,9 +178,7 @@ class fmcw_radar:
         # Print phase of angle fft data, in radians (no negative values)
         angle = np.angle(angle_fft_data)
         angle = angle = np.where(angle < 0, angle + 2*np.pi, angle)
-        print(angle)
         angle_fft = np.fft.fftshift(np.fft.fft(angle_fft_data,n=250))
-        print(angle_fft_range[np.argmax(np.abs(angle_fft))])
         plt.plot(angle_fft_range, 20*np.log10(np.abs(angle_fft)))
         plt.xlabel("Angle [degrees]")
         plt.ylabel("Amplitude [dB]")
