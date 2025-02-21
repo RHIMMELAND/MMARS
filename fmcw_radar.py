@@ -77,10 +77,15 @@ class fmcw_radar:
                 distances[tx_idx,rx_idx] = np.linalg.norm(target_position - self.__tx_antennas[tx_idx]) + np.linalg.norm(target_position - self.__rx_antennas[rx_idx])
 
         # Calculate the phase difference between the TX and RX antennas
-        phase_diff = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)), dtype=np.float64)
+        phase_diff = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-                phase_diff[tx_idx,rx_idx] = 2 * np.pi * (distances[tx_idx,rx_idx] / self.__lambda_c) % (2 * np.pi) # calculates how many times the wavelength fits in the distance 
+                phase_diff[tx_idx,rx_idx] = 2 * np.pi * (distances[tx_idx,rx_idx] / self.__lambda_c) #% (2 * np.pi) # calculates how many times the wavelength fits in the distance 
+        phase_diff = phase_diff-phase_diff[0,0]
+
+        # print(phase_diff[0,0]-phase_diff[0,1])
+        # print( np.arcsin(wave_length*(phase_diff[0,0]-phase_diff[0,1]) /(2*np.pi*(self.__lambda_c/2))) /np.pi*180 )
+        # print( (wave_length*(4.06325307) /(2*np.pi*(self.__lambda_c/2))) /np.pi*180 )
 
         # Check if the velocity is a 2x1 matrix
         if target_velocity.shape != (2, 1):
@@ -157,7 +162,7 @@ class fmcw_radar:
         plt.ylabel("Angle [degrees]")
         plt.title("Range-Angle FFT")
         plt.colorbar()
-        plt.show()
+        plt.show() 
     def plot_angle_fft(self):
         plt.figure()
         angle_fft_range = np.arcsin(np.linspace(1, -1, 250))*180/np.pi
@@ -165,9 +170,13 @@ class fmcw_radar:
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
                 angle_fft_data[tx_idx*len(self.__rx_antennas)+rx_idx] = self.__raw_radar_data[tx_idx,rx_idx,0,0]
+        # Print phase of angle fft data, in radians (no negative values)
+        angle = np.angle(angle_fft_data)
+        angle = angle = np.where(angle < 0, angle + 2*np.pi, angle)
+        print(angle)
         angle_fft = np.fft.fftshift(np.fft.fft(angle_fft_data,n=250))
         print(angle_fft_range[np.argmax(np.abs(angle_fft))])
-        plt.plot(angle_fft_range, 10*np.log10(np.abs(angle_fft)))
+        plt.plot(angle_fft_range, 20*np.log10(np.abs(angle_fft)))
         plt.xlabel("Angle [degrees]")
         plt.ylabel("Amplitude [dB]")
         plt.title("Angle FFT")
