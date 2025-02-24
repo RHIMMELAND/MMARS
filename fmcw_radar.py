@@ -40,15 +40,11 @@ class fmcw_radar:
         
         # Initialize the data array
         self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
-<<<<<<< Updated upstream
         self.window = np.ones((1,self.__N_s))
-
-=======
 
         # Class settings:
         self.__plane_wave_approx = plane_wave_approx # plane wave approximation, True or False.
     
->>>>>>> Stashed changes
     def show_parameters(self):
         f_IF_max = self.__R_max*2*self.__B/(self.__c*self.__T_c)
         print(f"Maximum unambiguous range: {self.__R_max:.2f} m")
@@ -92,13 +88,6 @@ class fmcw_radar:
                 distances[tx_idx,rx_idx] = np.linalg.norm(target_position - self.__tx_antennas[tx_idx]) + np.linalg.norm(target_position - self.__rx_antennas[rx_idx])
 
         # Calculate the phase difference between the TX and RX antennas
-<<<<<<< Updated upstream
-        phase_diff = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
-        for tx_idx in range(len(self.__tx_antennas)):
-            for rx_idx in range(len(self.__rx_antennas)):
-                phase_diff[tx_idx,rx_idx] = 2 * np.pi * (distances[tx_idx,rx_idx] / self.__lambda_c) #% (2 * np.pi) # calculates how many times the wavelength fits in the distance 
-        phase_diff = phase_diff-phase_diff[0,0]
-=======
         if self.__plane_wave_approx:
             phase_diff = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
             for tx_idx in range(len(self.__tx_antennas)):
@@ -111,7 +100,6 @@ class fmcw_radar:
                     phase_diff[tx_idx,rx_idx] = 2 * np.pi * (distances[tx_idx,rx_idx] / self.__lambda_c) # calculates how many times the wavelength fits in the distance 
             phase_diff = phase_diff-phase_diff[0,0]
         
->>>>>>> Stashed changes
 
         # Check if the velocity is a 2x1 matrix
         if target_velocity.shape != (2, 1):
@@ -135,15 +123,11 @@ class fmcw_radar:
         # Builds the raw radar data, based on TX-RX pairs
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-<<<<<<< Updated upstream
-                self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])+np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))+1j*np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))
-=======
                 self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])#+np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))+1j*np.random.normal(0, self.__sigma, (self.__N_c, self.__N_s))
 
         recieved_power = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * relative_distance**4 )
         print(np.sqrt(recieved_power))
         self.__raw_radar_data *= np.sqrt(recieved_power)
->>>>>>> Stashed changes
     
     ##############################################################################################
     
@@ -190,19 +174,11 @@ class fmcw_radar:
         range_angle_fft_data = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), self.__N_s), dtype=complex)
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-<<<<<<< Updated upstream
                 range_angle_fft_data[tx_idx*len(self.__rx_antennas)+rx_idx,:] = self.__raw_radar_data[tx_idx,rx_idx,0,:]
         # zero pad the angle fft data
         range_angle_fft_data = np.pad(range_angle_fft_data, ((0,100), (0,0)), 'constant')
         range_angle_fft = np.flip(np.fft.fftshift(np.fft.fft2(range_angle_fft_data.T), axes=(1)))
-        # max_val_idx = np.unravel_index(np.argmax(np.abs(range_angle_fft)), range_angle_fft.shape)
-        # print(angle_fft_range[max_val_idx[0]])
         plt.imshow(20*np.log10(np.abs(range_angle_fft)), extent=[angle_fft_range[-1], angle_fft_range[0], range_fft_range[0], range_fft_range[-1]], aspect='auto', cmap='hot')
-=======
-                angle_fft_data[tx_idx*len(self.__rx_antennas)+rx_idx,:] = self.__raw_radar_data[tx_idx,rx_idx,0,:]
-        range_angle_fft = np.fft.fftshift(np.fft.fft2(angle_fft_data), axes=(0))
-        plt.imshow(20*np.log10(np.flip(np.abs(range_angle_fft.T))), extent=[angle_fft_range[0], angle_fft_range[-1], range_fft_range[0], range_fft_range[-1]], aspect='auto', cmap='hot')
->>>>>>> Stashed changes
         plt.xlabel("Angle [degrees]")
         plt.ylabel("Range [m]")
         plt.title("Range-Angle FFT")
@@ -218,13 +194,9 @@ class fmcw_radar:
         # Print phase of angle fft data, in radians (no negative values)
         angle = np.angle(angle_fft_data)
         angle = angle = np.where(angle < 0, angle + 2*np.pi, angle)
-<<<<<<< Updated upstream
-        angle_fft = np.fft.fftshift(np.fft.fft(angle_fft_data,n=250))
-=======
         print(angle)
         angle_fft = np.fft.fftshift(np.fft.fft(angle_fft_data,n=251))
         print(angle_fft_range[np.argmax(np.abs(angle_fft))])
->>>>>>> Stashed changes
         plt.plot(angle_fft_range, 20*np.log10(np.abs(angle_fft)))
         plt.xlabel("Angle [degrees]")
         plt.ylabel("Amplitude [dB]")
