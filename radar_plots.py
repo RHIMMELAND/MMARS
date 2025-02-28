@@ -99,7 +99,7 @@ class radar_plots:
         IF_signals = radar_obj.get_raw_radar_data()*(1/radar_obj.get_window())
 
         # FFT of the IF signal
-        range_fft = np.fft.fftshift(range_fft[0,0,0,:])
+        range_fft = np.fft.fftshift(IF_signals[0,0,0,:])
 
         # Plot the range FFT
         if isinstance(self.__radar_objs, list):
