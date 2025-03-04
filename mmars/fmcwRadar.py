@@ -81,44 +81,48 @@ class FmcwRadar:
 
         # Constants and derived values:
         self.__c = c                                        # speed of light
-        self.__B = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
-        self.__wavelength_c = self.__c/self.__f_carrier     # self.__wavelength_c
+        self.__sweepBandwidth = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
+        self.__wavelength = self.__c/self.__f_carrier     # self.__wavelength
 
         if self.__tx_antennas is None:
-            self.__tx_antennas = np.array(([-12*(self.__wavelength_c/2), 0],
-                                           [-8*(self.__wavelength_c/2), 0],
-                                           [-4*(self.__wavelength_c/2), 0]))
+            self.__tx_antennas = np.array(([-12*(self.__wavelength/2), 0],
+                                           [-8*(self.__wavelength/2), 0],
+                                           [-4*(self.__wavelength/2), 0]))
             self.__tx_antennas = self.__tx_antennas + self.__position
         if self.__rx_antennas is None:
-            rx_antennas = np.array(([-(3/2)*(self.__wavelength_c/2), 0],
-                                    [-(1/2)*(self.__wavelength_c/2), 0],
-                                    [(1/2)*(self.__wavelength_c/2), 0],
-                                    [(3/2)*(self.__wavelength_c/2), 0]))
+            self.__rx_antennas = np.array(([-(3/2)*(self.__wavelength/2), 0],
+                                    [-(1/2)*(self.__wavelength/2), 0],
+                                    [(1/2)*(self.__wavelength/2), 0],
+                                    [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
-        # Check if the position is a 2x1 matrix
-        if self.__position.shape != (2, 1):
+        # Check if the position is a 1x2 matrix
+        if self.__position.shape != (1, 2):
             raise ValueError("Position must be a 2x1 np.array")
         
         # Noise:
-        received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength_c**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
+        received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
         self.__standardDeviation = np.sqrt(received_power_SNR/10**(self.__signalNoiseRatio[0]/10)) # noise standard deviation
 
         # Show parameters:
-        self.__R_max = self.__F_s*self.__c/(2*self.__S)   # maximum unambiguous range
-        self.__v_max = self.__lambda_c / (4 * self.__T_c) # maximum unambiguous velocity
+        self.__R_max = self.__f_sampling*self.__c/(2*self.__chirp_Rate)   # maximum unambiguous range
+        self.__v_max = self.__wavelength / (4 * self.__T_chirp) # maximum unambiguous velocity
         self.__angle_max = np.pi/2                        # maximum unambiguous angle
         
         # Initialize the data array
-        self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
-        self.__window = np.ones((1,self.__N_s))
+        #self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
+        #self.__window = np.ones((1,self.__N_s))
 
     
     def show_parameters(self):
-        f_IF_max = self.__R_max*2*self.__B/(self.__c*self.__T_c)
+        f_IF_max = self.__R_max*2*self.__sweepBandwidth/(self.__c*self.__T_chirp)
         print(f"Maximum unambiguous range: {self.__R_max:.2f} m")
         print(f"Maximum unambiguous IF frequency: {f_IF_max/1e6:.2f} MHz")
         print(f"Maximum unambiguous velocity: {self.__v_max:.2f} m/s")
         print(f"Maximum unambiguous angle: {np.degrees(self.__angle_max):.2f} degrees")
-        print(f"SNR: {self.__SNR[0]} dB at {self.__SNR[1]} m")
+        print(f"SNR: {self.__signalNoiseRatio[0]} dB at {self.__signalNoiseRatio[1]} m")
+
+
+    def run_simulation(self,
+                       ):
     
