@@ -30,6 +30,7 @@ def CACFAR(signal, N_guard = 2, N_train = 7, threshold = 1.3):
     elif mode == "2D":
         pass
     return detected_targets
+
 def MAX_VAL_DETECTION(signal):
     """
     This function implements the Maximum Value Detection algorithm.

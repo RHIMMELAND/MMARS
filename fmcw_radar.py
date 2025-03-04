@@ -31,7 +31,8 @@ class fmcw_radar:
         # Noise:
         self.__SNR = SNR                    # signal-to-noise ratio, at some distance [ SNR [dB], distance [m] ]
         recieved_power_SNR = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * self.__SNR[1]**4 )
-        self.__sigma = 10*np.sqrt(recieved_power_SNR/10**(self.__SNR[0]/10)) # noise standard deviation
+        self.__sigma = np.sqrt(recieved_power_SNR/10**(self.__SNR[0]/10)) # noise standard deviation
+        print(self.__sigma)
 
         # Show parameters:
         self.__R_max = self.__F_s*self.__c/(2*self.__S)   # maximum unambiguous range
@@ -172,9 +173,11 @@ class fmcw_radar:
             for rx_idx in range(len(self.__rx_antennas)):
                 self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])
         recieved_power = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * relative_distance**4 )
-        self.__raw_radar_data += (np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape)+1j*np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape))/np.sqrt(2)
-        self.__raw_radar_data[:,:] *= self.__window
         self.__raw_radar_data *= np.sqrt(recieved_power)
+        noise = (np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape)+1j*np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape))/np.sqrt(2)
+        # print("Current SNR: ", 10*np.log10(np.mean(np.abs(self.__raw_radar_data)**2)/np.mean(np.abs(noise)**2)))
+        self.__raw_radar_data += noise
+        self.__raw_radar_data[:,:] *= self.__window
     
     ##############################################################################################
 # RADAR PRESETS:
@@ -186,7 +189,7 @@ def default_77GHz_FMCW_radar(radar_position = np.array([[0], [0]])):
     if radar_position.shape != (2, 1):
         raise ValueError("Position must be a 2x1 matrix")
     # Create a default 77GHz FMCW radar, used for testing
-    default_77GHz_FMCW_radar = fmcw_radar(radar_position, SNR=[10,10])
+    default_77GHz_FMCW_radar = fmcw_radar(radar_position, SNR=[0,10])
     wavelength = default_77GHz_FMCW_radar.get_wavelength()
     default_77GHz_FMCW_radar.add_tx_antenna(np.array([[-6*wavelength - 3*wavelength/4], [0]]))
     default_77GHz_FMCW_radar.add_tx_antenna(np.array([[-4*wavelength - 3*wavelength/4], [0]]))
