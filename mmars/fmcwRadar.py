@@ -1,9 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 04 11:45:00 2025
+
+@author: rhimmerland, MaltheRaschke
+"""
+
 import numpy as np
 from scipy.constants import c
 
 class FmcwRadar:
     def __init__(self, 
-                 position, 
+                 position,
+                 tx_antennas = None,
+                 rx_antennas = None, 
                  chirp_Rate = 30e6/1e-6, 
                  T_chirp = 25.66e-6, 
                  f_carrier = 77e9, 
@@ -64,7 +74,7 @@ class FmcwRadar:
         self.__f_sampling = f_sampling
         self.__N_chirps = N_chirps
         self.__signalNoiseRatio = signalNoiseRatio
-        self.__tranasmitPower = transmitPower
+        self.__transmitPower = transmitPower
         self.__gain = gain
         self.__radarCrossSection = radarCrossSection
 
@@ -74,25 +84,25 @@ class FmcwRadar:
         self.__B = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
         self.__wavelength_c = self.__c/self.__f_carrier     # self.__wavelength_c
 
-        tx_antennas = np.array(([-12*(self.__wavelength_c/2), 0],
-                                [-8*(self.__wavelength_c/2), 0],
-                                [-4*(self.__wavelength_c/2), 0])),
-        rx_antennas = np.array(([-(3/2)*(self.__wavelength_c/2), 0],
-                                [-(1/2)*(self.__wavelength_c/2), 0],
-                                [(1/2)*(self.__wavelength_c/2), 0],
-                                [(3/2)*(self.__wavelength_c/2), 0]))
+        if self.__tx_antennas is None:
+            self.__tx_antennas = np.array(([-12*(self.__wavelength_c/2), 0],
+                                           [-8*(self.__wavelength_c/2), 0],
+                                           [-4*(self.__wavelength_c/2), 0]))
+            self.__tx_antennas = self.__tx_antennas + self.__position
+        if self.__rx_antennas is None:
+            rx_antennas = np.array(([-(3/2)*(self.__wavelength_c/2), 0],
+                                    [-(1/2)*(self.__wavelength_c/2), 0],
+                                    [(1/2)*(self.__wavelength_c/2), 0],
+                                    [(3/2)*(self.__wavelength_c/2), 0]))
+            self.__rx_antennas = self.__rx_antennas + self.__position
 
-        
         # Check if the position is a 2x1 matrix
         if self.__position.shape != (2, 1):
             raise ValueError("Position must be a 2x1 np.array")
-
-
+        
         # Noise:
-        self.__SNR = SNR                    # signal-to-noise ratio, at some distance [ SNR [dB], distance [m] ]
-        recieved_power_SNR = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * self.__SNR[1]**4 )
-        self.__sigma = np.sqrt(recieved_power_SNR/10**(self.__SNR[0]/10)) # noise standard deviation
-        print(self.__sigma)
+        received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength_c**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
+        self.__standardDeviation = np.sqrt(received_power_SNR/10**(self.__signalNoiseRatio[0]/10)) # noise standard deviation
 
         # Show parameters:
         self.__R_max = self.__F_s*self.__c/(2*self.__S)   # maximum unambiguous range
