@@ -3,7 +3,7 @@
 """
 Created on Tue Mar 04 11:45:00 2025
 
-@author: rhimmerland, MaltheRaschke
+@author: RHIMMELAND, MaltheRaschke
 """
 
 import numpy as np
@@ -108,11 +108,6 @@ class FmcwRadar:
         self.__R_max = self.__f_sampling*self.__c/(2*self.__chirp_Rate)   # maximum unambiguous range
         self.__v_max = self.__wavelength / (4 * self.__T_chirp) # maximum unambiguous velocity
         self.__angle_max = np.pi/2                        # maximum unambiguous angle
-        
-        # Initialize the data array
-        #self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
-        #self.__window = np.ones((1,self.__N_s))
-
     
     def show_parameters(self):
         f_IF_max = self.__R_max*2*self.__sweepBandwidth/(self.__c*self.__T_chirp)
@@ -121,8 +116,3 @@ class FmcwRadar:
         print(f"Maximum unambiguous velocity: {self.__v_max:.2f} m/s")
         print(f"Maximum unambiguous angle: {np.degrees(self.__angle_max):.2f} degrees")
         print(f"SNR: {self.__signalNoiseRatio[0]} dB at {self.__signalNoiseRatio[1]} m")
-
-
-    def run_simulation(self,
-                       ):
-    
