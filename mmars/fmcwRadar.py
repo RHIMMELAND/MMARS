@@ -1,14 +1,18 @@
 import numpy as np
+from scipy.constants import c
 
 class FmcwRadar:
     def __init__(self, 
-                 pos, 
-                 S = 30e6/1e-6, 
-                 T_c = 25.66e-6, 
-                 f_c = 77e9, 
+                 position, 
+                 chirp_Rate = 30e6/1e-6, 
+                 T_chirp = 25.66e-6, 
+                 f_carrier = 77e9, 
                  N_samples = 256, 
-                 frequency_sampling = 20e6, 
+                 f_sampling = 20e6, 
                  N_chirps = 128, 
+                 transmitPower = 1,
+                 gain = 1,
+                 radarCrossSection = 1,
                  signalNoiseRatio = [10, 10]
                  ):
         
@@ -18,40 +22,71 @@ class FmcwRadar:
 
         Parameters
         ----------
-        pos : np.array
-            The position of the radar in the coordinate system of the simulation.
-        S : float
-            The chirp rate [MHz/µs]
-        
-        
-        
-        
-        
+        position : np.array
+            The position of the radar in 2D space. The position is a 2x1 np.array.
+        chirp_Rate : float
+            The chirp rate of the radar in MHz/µs.
+        T_chirp : float
+            The duration of the chirp in µs.
+        f_carrier : float
+            The carrier frequency of the radar in Hz.
+        N_samples : int
+            The number of ADC samples.
+        f_sampling : float
+            The sampling frequency in Hz.
+        N_chirps : int
+            The number of chirps.
+        transmit_Power : float
+            The transmitted power in W.
+        gain : float
+            The antenna gain.
+        radarCrossSection : float
+            The radar cross section
+        signalNoiseRatio : list
+            The signal-to-noise ratio of the radar. The first element is the SNR in dB and the second element is the distance in meters where the SNR is measured
+
+
+        Attributes
+        ----------
+        -||-
+        Notes
+        -----
+        -||-
         """
-        # Check if the position is a 2x1 matrix
-        if pos.shape != (2, 1):
-            raise ValueError("Position must be a 2x1 np.array")
-        self.__position = pos
 
-        # Radar hardware:
-        self.__rx_antennas = []
-        self.__tx_antennas = []
+        self.__position = position
+        self.__tx_antennas = tx_antennas
+        self.__rx_antennas = rx_antennas
+        self.__chirp_Rate = chirp_Rate
+        self.__T_chirp = T_chirp
+        self.__f_carrier = f_carrier
+        self.__N_samples = N_samples
+        self.__f_sampling = f_sampling
+        self.__N_chirps = N_chirps
+        self.__signalNoiseRatio = signalNoiseRatio
+        self.__tranasmitPower = transmitPower
+        self.__gain = gain
+        self.__radarCrossSection = radarCrossSection
 
-        # Radar settings:
-        self.__S   = S   #30e6/1e-6 # chirp rate [MHz/µs]
-        self.__T_c = T_c #25.66e-6  # pulse duration
-        self.__f_c = f_c #77e9      # carrier frequency
-        self.__N_s = N_s #256       # number of ADC samples
-        self.__F_s = F_s #20e6      # sampling frequency
-        self.__N_c = N_c #256       # number of chirps
-        self.__transmitted_power = 1# transmitted power [W]
-        self.__G = 1                # antenna gain
-        self.__RCS = 1              # radar cross section
-        
+
         # Constants and derived values:
-        self.__c = 3e8                          # speed of light
-        self.__B = self.__S*self.__T_c          # sweep bandwidth
-        self.__lambda_c = self.__c/self.__f_c   # wavelength
+        self.__c = c                                        # speed of light
+        self.__B = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
+        self.__wavelength_c = self.__c/self.__f_carrier     # self.__wavelength_c
+
+        tx_antennas = np.array(([-12*(self.__wavelength_c/2), 0],
+                                [-8*(self.__wavelength_c/2), 0],
+                                [-4*(self.__wavelength_c/2), 0])),
+        rx_antennas = np.array(([-(3/2)*(self.__wavelength_c/2), 0],
+                                [-(1/2)*(self.__wavelength_c/2), 0],
+                                [(1/2)*(self.__wavelength_c/2), 0],
+                                [(3/2)*(self.__wavelength_c/2), 0]))
+
+        
+        # Check if the position is a 2x1 matrix
+        if self.__position.shape != (2, 1):
+            raise ValueError("Position must be a 2x1 np.array")
+
 
         # Noise:
         self.__SNR = SNR                    # signal-to-noise ratio, at some distance [ SNR [dB], distance [m] ]
