@@ -8,7 +8,7 @@ Created on Tue Mar 04 11:45:00 2025
 
 import numpy as np
 from scipy.constants import c
-import time 
+import time as tt
 
 class FmcwRadar:
     def __init__(self, 
@@ -107,6 +107,7 @@ class FmcwRadar:
         # Noise:
         received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
         self.__standardDeviation = np.sqrt(received_power_SNR/10**(self.__signalNoiseRatio[0]/10)) # noise standard deviation
+        self.__current_SNR = 0
 
         # Show parameters:
         self.__R_max = self.__f_sampling*self.__c/(2*self.__chirp_Rate)   # maximum unambiguous range
@@ -156,9 +157,14 @@ class FmcwRadar:
         # Compute the Intermediate frequency (IF) frequency:
         f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
 
-        # Compute the received power
+        # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
 
+        # Noise signal:
+        white_noise = (np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) 
+                        + 1j*np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape))/np.sqrt(2)
+
+        start_time = tt.time()
         # Generate the IF signal
         time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
@@ -168,4 +174,14 @@ class FmcwRadar:
                                                          *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
                                                         )
         self.__IF_signal *= np.sqrt(received_power) # Scale the signal based on the received power
-        self.__IF_signal += np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) # Add white noise
+        signal_power = np.mean(np.abs(self.__IF_signal)**2) # Compute the signal power
+        noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
+        self.__current_SNR = signal_power/noise_power # Compute the current SNR
+        self.__IF_signal += white_noise # Add noise to the signal
+        stop_time = tt.time()
+        print(f"Time to generate IF signal: {stop_time-start_time:.5f} s")
+    def get_current_SNR(self, decibels = True):
+        if decibels:
+            return 10*np.log10(self.__current_SNR)
+        else:
+            return self.__current_SNR
