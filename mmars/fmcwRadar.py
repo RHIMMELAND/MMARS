@@ -96,6 +96,9 @@ class FmcwRadar:
                                     [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
+        print(self.__tx_antennas)
+        print(self.__rx_antennas)
+
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
             raise ValueError("Position must be a 2x1 np.array")
@@ -116,3 +119,27 @@ class FmcwRadar:
         print(f"Maximum unambiguous velocity: {self.__v_max:.2f} m/s")
         print(f"Maximum unambiguous angle: {np.degrees(self.__angle_max):.2f} degrees")
         print(f"SNR: {self.__signalNoiseRatio[0]} dB at {self.__signalNoiseRatio[1]} m")
+
+
+    def radar_to_target_measures(self, 
+                                 target_x=10, 
+                                 target_y=10, 
+                                 target_velocity_x=5, 
+                                 target_velocity_y=5
+                                 ):
+        
+        target_position = np.array([target_x, target_y])
+
+        # Compute the radial distance to the target
+        radial_distance = np.linalg.norm(self.__position - target_position, axis=1)
+
+        # Compute the radial velocity of the target
+        radial_velocity = np.dot(np.array([target_velocity_x, target_velocity_y]), (target_position - self.__position).flatten()) / radial_distance
+
+        # Compute all radial distances between TX and RX antennas and the target
+        distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
+        for tx_idx in range(len(self.__tx_antennas)):
+            for rx_idx in range(len(self.__rx_antennas)):
+                distances[tx_idx,rx_idx] = np.linalg.norm(self.__tx_antennas[tx_idx] - target_position) + np.linalg.norm(self.__rx_antennas[rx_idx] - target_position)
+
+        print(radial_distance, radial_velocity, distances)

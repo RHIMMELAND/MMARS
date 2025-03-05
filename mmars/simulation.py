@@ -1,30 +1,25 @@
 import numpy as np
 
-class simulation:
+from .target import Target
+from .fmcwRadar import FmcwRadar
+
+
+class Simulation:
     def __init__(self, 
-                 radar_Setup, 
-                 target_Setup
-                 
-
+                 radar_setup: FmcwRadar, 
+                 target_setup: Target
                  ):
+        
+        self.__radar_setup = radar_setup
+        self.__target_setup = target_setup
 
-        print("Simulation started")
-        """ Simulation """
-
-
-    def compute_radial_distances(TX_locations, RX_locations, target_locations):
-        """Compute all radial distances from the target to the TXs and RXs"""
-        target_location = np.array([x[time_step], y[time_step]])
-        r_TX = np.linalg.norm(TX_locations - target_location, axis=1)
-        r_RX = np.linalg.norm(RX_locations - target_location, axis=1)
-
-
-
-    def compute_radial_velocity(x_target, y_target, x_target_velocity, y_target_velocity, x_base, y_base):
-        dx = x_target - x_base
-        dy = y_target - y_base
-        distance = np.sqrt(dx**2 + dy**2)
-        radial_velocity = (dx * x_target_velocity + dy * y_target_velocity) / distance
-        return radial_velocity
     
-    # THIS IS A DRAFT!
+    def run(self):
+        print(f"Running simulation with {self.__radar_setup} and {self.__target_setup}")
+        
+        print(self.__radar_setup.__tx_antennas)
+        """
+        self.compute_radial_distances(self.__radar_setup.__tx_antennas, 
+                                      self.__radar_setup.__rx_antennas, 
+                                      self.__target_setup.__x, 
+                                      self.__target_setup.__y)"""

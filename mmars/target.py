@@ -1,6 +1,6 @@
 import numpy as np
 
-class target:
+class Target:
     def __init__(self, 
                  start_position, 
                  start_velocity, 
@@ -92,7 +92,8 @@ class target:
         # Calculate velocity
         vx = np.gradient(x, self.__T_frame)
         vy = np.gradient(y, self.__T_frame)
-        self.__x, self.__y = x, y
+
+        self.__x, self.__y, self.__vx, self.__vy = x, y, vx, vy
     
     ##############################################################################################
 
@@ -101,6 +102,6 @@ class target:
         Get the target trajectory.
 
         Returns:
-            x, y (numpy arrays)
+            x, y, vx, vy (numpy arrays)
         """
-        return self.__x, self.__y
+        return self.__x, self.__y, self.__vx, self.__vy
