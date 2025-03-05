@@ -141,5 +141,3 @@ class FmcwRadar:
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
                 distances[tx_idx,rx_idx] = np.linalg.norm(self.__tx_antennas[tx_idx] - target_position) + np.linalg.norm(self.__rx_antennas[rx_idx] - target_position)
-
-        print(radial_distance, radial_velocity, distances)
