@@ -8,7 +8,6 @@ Created on Tue Mar 04 11:45:00 2025
 
 import numpy as np
 from scipy.constants import c
-import time as tt
 
 class FmcwRadar:
     def __init__(self, 
@@ -163,8 +162,7 @@ class FmcwRadar:
         # Noise signal:
         white_noise = (np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) 
                         + 1j*np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape))/np.sqrt(2)
-
-        start_time = tt.time()
+        
         # Generate the IF signal
         time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
@@ -178,8 +176,7 @@ class FmcwRadar:
         noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
         self.__current_SNR = signal_power/noise_power # Compute the current SNR
         self.__IF_signal += white_noise # Add noise to the signal
-        stop_time = tt.time()
-        print(f"Time to generate IF signal: {stop_time-start_time:.5f} s")
+
     def get_current_SNR(self, decibels = True):
         if decibels:
             return 10*np.log10(self.__current_SNR)
