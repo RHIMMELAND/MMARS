@@ -146,4 +146,26 @@ class FmcwRadar:
             for rx_idx in range(len(self.__rx_antennas)):
                 distances[tx_idx,rx_idx] = np.linalg.norm(self.__tx_antennas[tx_idx] - target_position) + np.linalg.norm(self.__rx_antennas[rx_idx] - target_position)
 
-        print(radial_distance, radial_velocity, distances)
+        # Compute the phase difference between the antennas
+        phase_diff_TX_RX = 2*np.pi*distances/self.__wavelength
+        phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
+
+        # Compute the phase difference from the target moving during the chirp
+        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_chirp) / self.__c 
+
+        # Compute the Intermediate frequency (IF) frequency:
+        f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
+
+        # Compute the received power
+        received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
+
+        # Generate the IF signal
+        time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
+        for tx_idx in range(self.__tx_antennas.shape[0]):
+            for rx_idx in range(self.__rx_antennas.shape[0]):
+                self.__IF_signal[tx_idx, rx_idx, :, :] = (np.exp(1j*2*np.pi*f_IF*(np.ones((self.__N_chirps,1))@time)) # Changes with ADC samples
+                                                         *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
+                                                         *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
+                                                        )
+        self.__IF_signal *= np.sqrt(received_power) # Scale the signal based on the received power
+        self.__IF_signal += np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) # Add white noise
