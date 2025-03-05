@@ -70,4 +70,3 @@ class target_path:
             x, y, vx, vy (numpy arrays)
         """
         return self.__x, self.__y, self.__vx, self.__vy
-    

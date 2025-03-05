@@ -30,9 +30,9 @@ class fmcw_radar:
 
         # Noise:
         self.__SNR = SNR                    # signal-to-noise ratio, at some distance [ SNR [dB], distance [m] ]
-        recieved_power_SNR = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * self.__SNR[1]**4 )
-        self.__sigma = np.sqrt(recieved_power_SNR/10**(self.__SNR[0]/10)) # noise standard deviation
-        print(self.__sigma)
+        received_power_SNR = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * self.__SNR[1]**4 )
+        self.__sigma = np.sqrt(received_power_SNR/10**(self.__SNR[0]/10)) # noise standard deviation
+        # print(self.__sigma)
 
         # Show parameters:
         self.__R_max = self.__F_s*self.__c/(2*self.__S)   # maximum unambiguous range
@@ -68,6 +68,22 @@ class fmcw_radar:
             raise ValueError("Position must be a 2x1 matrix")
         self.__tx_antennas.append(self.__position + pos)
         self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
+
+    def add_antennas(self, antennas = {'tx':[np.array([[0],[0]])], 'rx':[np.array([[0],[0]])]}):
+        if not isinstance(antennas, dict) or 'tx' not in antennas or 'rx' not in antennas:
+            raise TypeError("Antennas must be a dictionary with keys 'tx' and 'rx'.")
+        self.__tx_antennas = []
+        self.__rx_antennas = []
+        for tx in antennas['tx']:
+            if tx.shape != (2, 1):
+                raise ValueError("Position must be a 2x1 matrix")
+            self.__tx_antennas.append(self.__position + tx)
+        for rx in antennas['rx']: 
+            if rx.shape != (2, 1):
+                raise ValueError("Position must be a 2x1 matrix")
+            self.__rx_antennas.append(self.__position + rx)
+        self.__raw_radar_data = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas), self.__N_c, self.__N_s), dtype=complex)
+        
 
     ##############################################################################################
 
@@ -172,8 +188,8 @@ class fmcw_radar:
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
                 self.__raw_radar_data[tx_idx,rx_idx,:,:] = IF_signal(relative_distance, radial_velocity, phase_diff[tx_idx,rx_idx])
-        recieved_power = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * relative_distance**4 )
-        self.__raw_radar_data *= np.sqrt(recieved_power)
+        received_power = self.__transmitted_power*self.__G*self.__lambda_c**2*self.__RCS/( (4*np.pi)**3 * relative_distance**4 )
+        self.__raw_radar_data *= np.sqrt(received_power)
         noise = (np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape)+1j*np.random.normal(0, (self.__sigma), self.__raw_radar_data.shape))/np.sqrt(2)
         # print("Current SNR: ", 10*np.log10(np.mean(np.abs(self.__raw_radar_data)**2)/np.mean(np.abs(noise)**2)))
         self.__raw_radar_data += noise
@@ -189,7 +205,7 @@ def default_77GHz_FMCW_radar(radar_position = np.array([[0], [0]])):
     if radar_position.shape != (2, 1):
         raise ValueError("Position must be a 2x1 matrix")
     # Create a default 77GHz FMCW radar, used for testing
-    default_77GHz_FMCW_radar = fmcw_radar(radar_position, SNR=[0,10])
+    default_77GHz_FMCW_radar = fmcw_radar(radar_position, SNR=[30,10])
     wavelength = default_77GHz_FMCW_radar.get_wavelength()
     default_77GHz_FMCW_radar.add_tx_antenna(np.array([[-6*wavelength - 3*wavelength/4], [0]]))
     default_77GHz_FMCW_radar.add_tx_antenna(np.array([[-4*wavelength - 3*wavelength/4], [0]]))
