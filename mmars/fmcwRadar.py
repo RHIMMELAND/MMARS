@@ -182,3 +182,6 @@ class FmcwRadar:
             return 10*np.log10(self.__current_SNR)
         else:
             return self.__current_SNR
+        
+    def get_IF_signal(self):
+        return self.__IF_signal
