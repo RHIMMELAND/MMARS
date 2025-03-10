@@ -185,3 +185,9 @@ class FmcwRadar:
         
     def get_IF_signal(self):
         return self.__IF_signal
+    
+    def get_max_range(self):
+        return self.__R_max
+    
+    def get_N_samples(self):
+        return self.__N_samples
