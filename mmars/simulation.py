@@ -50,13 +50,15 @@ class Simulation:
 
             for frame in tqdm(self.__frames):
                 range_fft = np.fft.fft(frame[0][0][0])
+                plt.close()
+                plt.plot(range_values, 10*np.log(np.abs(range_fft)))
+                plt.title(f"Noisefloor {np.mean(10*np.log(np.abs(range_fft)))}.2f dB, Peak {np.max(10*np.log(np.abs(range_fft)))}.2f dB")
 
                 range_fft = np.abs(range_fft)
                 radial_distance = range_values[np.argmax(range_fft)]
-                
 
                 idx = self.__radar_setup.get_IF_signal().shape
-                phasors = np.zeros((idx[0]*idx[1], 256), dtype=complex)
+                phasors = np.zeros((idx[0]*idx[1], idx[3]), dtype=complex)
                 for i in range(idx[0]):
                     for j in range(idx[1]):
                         phasors[i*(idx[0]+1)+j] = frame[i][j][0]
@@ -81,7 +83,9 @@ class Simulation:
         if self.__x is None:
             raise ValueError("No data to plot. Run the simulation first.")
         else:
+
             plt.figure(figsize=(10,10))
+
             plt.plot(self.__x, self.__y, label="Ground truth", color="black", linewidth=5)
             if self.__tracking_algorithm is not None:
                 plt.scatter(self.__tracking_data_x, self.__tracking_data_y, label="Estimated trajectory")
