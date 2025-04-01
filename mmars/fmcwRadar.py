@@ -105,7 +105,7 @@ class FmcwRadar:
         
         # Noise:
         received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
-        self.__standardDeviation = np.sqrt(received_power_SNR/10**(self.__signalNoiseRatio[0]/10)) # noise standard deviation
+        self.__standardDeviation = np.sqrt(received_power_SNR/10**((self.__signalNoiseRatio[0])/10)) # noise standard deviation
         self.__current_SNR = 0
 
         # Show parameters:
@@ -160,8 +160,9 @@ class FmcwRadar:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
 
         # Noise signal:
-        white_noise = (np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) 
-                        + 1j*np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape))/np.sqrt(2)
+        white_noise = ((np.random.normal(0, 1, self.__IF_signal.shape) 
+                        + 1j*np.random.normal(0, 1, self.__IF_signal.shape)) * self.__standardDeviation) / np.sqrt(2)
+        
         
         # Generate the IF signal
         time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
@@ -171,6 +172,7 @@ class FmcwRadar:
                                                          *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
                                                          *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
                                                         )
+                
         self.__IF_signal *= np.sqrt(received_power) # Scale the signal based on the received power
         signal_power = np.mean(np.abs(self.__IF_signal)**2) # Compute the signal power
         noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
@@ -191,3 +193,6 @@ class FmcwRadar:
     
     def get_N_samples(self):
         return self.__N_samples
+    
+    def get_standardDeviation(self):
+        return self.__standardDeviation
