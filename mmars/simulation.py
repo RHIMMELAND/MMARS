@@ -25,10 +25,12 @@ class Simulation:
         self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
         idx = self.__radar_setup.get_IF_signal().shape
         self.__frames = np.zeros((len(self.__x), idx[0], idx[1], idx[2], idx[3]), dtype=complex)
+        self.__SNRs = np.zeros(len(self.__x))
 
         for i in tqdm(range(len(self.__x))):
             self.__radar_setup.radar_to_target_measures(self.__x[i], self.__y[i], self.__vx[i], self.__vy[i])
             self.__frames[i] = self.__radar_setup.get_IF_signal()
+            self.__SNRs[i] = self.__radar_setup.get_current_SNR()
     
     def run_tracking(self,
                      tracking_algorithm="maximum_value"
@@ -99,6 +101,9 @@ class Simulation:
     
     def get_tracking_data(self):
         return self.__tracking_data_x, self.__tracking_data_y, self.__tracking_data_vx, self.__tracking_data_vy
+    
+    def get_SNR(self):
+        return self.__SNRs
     
 
 

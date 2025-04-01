@@ -11,7 +11,7 @@ from scipy.constants import c
 
 class FmcwRadar:
     def __init__(self, 
-                 position,
+                 position = np.array([[0,0]]),
                  tx_antennas = None,
                  rx_antennas = None, 
                  chirp_Rate = 30e6/1e-6, 
