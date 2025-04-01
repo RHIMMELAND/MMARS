@@ -8,6 +8,7 @@ Created on Tue Mar 04 11:45:00 2025
 
 import numpy as np
 from scipy.constants import c
+import numba
 
 class FmcwRadar:
     def __init__(self, 
@@ -96,8 +97,8 @@ class FmcwRadar:
                                     [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
-        print(self.__tx_antennas)
-        print(self.__rx_antennas)
+        #print(self.__tx_antennas)
+        #print(self.__rx_antennas)
 
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
@@ -116,6 +117,8 @@ class FmcwRadar:
         # Data matrix:
         self.__IF_signal = np.zeros((self.__tx_antennas.shape[0], self.__rx_antennas.shape[0], self.__N_chirps, self.__N_samples),dtype=complex)
         self.__S_signal = np.zeros((self.__tx_antennas.shape[0], self.__rx_antennas.shape[0], self.__N_chirps, self.__N_samples),dtype=complex)
+        self.__flatten_IF_signal = self.__IF_signal.flatten()
+        self.__flatten_S_signal = self.__S_signal.flatten()
 
     def show_parameters(self):
         f_IF_max = self.__R_max*2*self.__sweepBandwidth/(self.__c*self.__T_chirp)
@@ -169,22 +172,21 @@ class FmcwRadar:
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
                 self.__IF_signal[tx_idx, rx_idx, :, :] = (np.exp(1j*2*np.pi*f_IF*(np.ones((self.__N_chirps,1))@time)) # Changes with ADC samples
-                                                         *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
                                                          *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
-                                                        )
+                                                        )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]) # Changes with antennas
         self.__IF_signal *= np.sqrt(received_power) # Scale the signal based on the received power
         signal_power = np.mean(np.abs(self.__IF_signal)**2) # Compute the signal power
         noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
         self.__current_SNR = signal_power/noise_power # Compute the current SNR
         self.__IF_signal += white_noise # Add noise to the signal
-
+        self.__flatten_IF_signal = self.__IF_signal.flatten() # Flatten the signal for easier access
+    
     def generate_S_signal(self, 
-                                 target_x=0, 
-                                 target_y=10, 
-                                 target_velocity_x=0, 
-                                 target_velocity_y=5
-                                 ):
-        
+                                target_x=0, 
+                                target_y=10, 
+                                target_velocity_x=0, 
+                                target_velocity_y=5
+                                ):
         target_position = np.array([target_x, target_y])
 
         # Compute the radial distance to the target
@@ -213,14 +215,13 @@ class FmcwRadar:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
         
         # Generate the IF signal
-        freqs = np.linspace(0,self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
+        freqs = np.linspace(0, 2 * np.pi,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
-                self.__S_signal[tx_idx, rx_idx, :, :] = (np.sin(((np.ones((self.__N_chirps,1))@freqs) - f_IF)*2*self.__T_chirp)/((np.ones((self.__N_chirps,1))@freqs) - f_IF) # Changes with ADC samples
-                                                         *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
-                                                         *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
-                                                        )
+                self.__S_signal[tx_idx, rx_idx, :, :] = (np.exp(1.j * freqs * self.__N_samples/2) * np.sin((freqs - f_IF /self.__f_sampling * 2 * np.pi) * (self.__N_samples + 1) * 1/2) / np.sin((freqs - f_IF/self.__f_sampling * 2 * np.pi)/2)
+                                            )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx])
         self.__S_signal *= np.sqrt(received_power) # Scale the signal based on the received power
+        self.__flatten_S_signal = self.__S_signal.flatten()
 
     def get_current_SNR(self, decibels = True):
         if decibels:
@@ -228,14 +229,38 @@ class FmcwRadar:
         else:
             return self.__current_SNR
         
-    def get_IF_signal(self):
-        return self.__IF_signal
+    def get_IF_signal(self, flatten=False):
+        if flatten:
+            return self.__flatten_IF_signal[:,np.newaxis]
+        else:
+            return self.__IF_signal
     
-    def get_S_signal(self):
-        return self.__S_signal
+    def get_S_signal(self, flatten=False):
+        if flatten:
+            return self.__flatten_S_signal[:,np.newaxis]
+        else:
+            return self.__S_signal
 
     def get_max_range(self):
         return self.__R_max
-    
     def get_N_samples(self):
         return self.__N_samples
+    def get_radar_position(self):
+        return self.__position
+    def get_chirp_rate(self):
+        return self.__chirp_Rate
+    def get_sampling_frequency(self):
+        return self.__f_sampling
+    def get_wavelength(self):
+        return self.__wavelength
+    def get_antenna_gain(self):
+        return self.__gain
+    def get_transmit_power(self):
+        return self.__transmitPower
+    def get_radar_cross_section(self):
+        return self.__radarCrossSection
+    
+    def get_tx_antennas(self):
+        return self.__tx_antennas
+    def get_rx_antennas(self):
+        return self.__rx_antennas

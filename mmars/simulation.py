@@ -13,6 +13,7 @@ class Simulation:
                  ):
         
         self.__frames = None
+        self.__flatten_frames = None
         self.__x = None
         self.__y = None
         self.__vx = None
@@ -29,6 +30,7 @@ class Simulation:
         for i in tqdm(range(len(self.__x))):
             self.__radar_setup.radar_to_target_measures(self.__x[i], self.__y[i], self.__vx[i], self.__vy[i])
             self.__frames[i] = self.__radar_setup.get_IF_signal()
+        self.__flatten_frames = np.array([self.__frames[i].flatten() for i in range(self.__frames.shape[0])])
     
     def run_tracking(self,
                      tracking_algorithm="maximum_value"
@@ -61,8 +63,15 @@ class Simulation:
             plt.legend()
             plt.show()
 
-    def get_data(self):
-        return self.__frames
+    def get_data(self, idx = None, flatten = False, fft_data = False):
+        return_var = self.__frames
+        if fft_data:
+            return_var = np.fft.fft(self.__frames, axis=-1)
+        if flatten:
+            return_var = [return_var[frame_idx].flatten() for frame_idx in range(return_var.shape[0])]
+        if idx is not None:
+            return_var = return_var[idx]
+        return return_var
     
     def get_tracking_data(self):
         return self.__tracking_data_x, self.__tracking_data_y, self.__tracking_data_vx, self.__tracking_data_vy
@@ -106,8 +115,6 @@ class Simulation:
         print(PHI.get(return_numpy=True))
 
         for frame in tqdm(self.__frames):
-
-
             def GET_S_VECTOR(x,y):
                 MRBLAT_RADAR_CPY.generate_S_signal(target_velocity_x=x, target_velocity_y=y)
                 return (MRBLAT_RADAR_CPY.get_S_signal()).flatten()
