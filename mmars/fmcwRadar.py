@@ -15,7 +15,7 @@ class FmcwRadar:
                  tx_antennas = None,
                  rx_antennas = None, 
                  chirp_Rate = 30e6/1e-6, 
-                 T_chirp = 25.66e-6, 
+                 T_between_chirps = 25.66e-6, 
                  f_carrier = 77e9, 
                  N_samples = 256, 
                  f_sampling = 20e6, 
@@ -36,7 +36,7 @@ class FmcwRadar:
             The position of the radar in 2D space. The position is a 2x1 np.array.
         chirp_Rate : float
             The chirp rate of the radar in MHz/µs.
-        T_chirp : float
+        T_between_chirps : float
             The duration of the chirp in µs.
         f_carrier : float
             The carrier frequency of the radar in Hz.
@@ -68,7 +68,7 @@ class FmcwRadar:
         self.__tx_antennas = tx_antennas
         self.__rx_antennas = rx_antennas
         self.__chirp_Rate = chirp_Rate
-        self.__T_chirp = T_chirp
+        self.__T_between_chirps = T_between_chirps
         self.__f_carrier = f_carrier
         self.__N_samples = N_samples
         self.__f_sampling = f_sampling
@@ -81,7 +81,7 @@ class FmcwRadar:
 
         # Constants and derived values:
         self.__c = c                                        # speed of light
-        self.__sweepBandwidth = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
+
         self.__wavelength = self.__c/self.__f_carrier     # self.__wavelength
 
         if self.__tx_antennas is None:
@@ -110,7 +110,7 @@ class FmcwRadar:
 
         # Show parameters:
         self.__R_max = self.__f_sampling*self.__c/(2*self.__chirp_Rate)   # maximum unambiguous range
-        self.__v_max = self.__wavelength / (4 * self.__T_chirp) # maximum unambiguous velocity
+        self.__v_max = self.__wavelength / (4 * self.__T_between_chirps) # maximum unambiguous velocity
         self.__angle_max = np.pi/2                        # maximum unambiguous angle
 
         # Data matrix:
@@ -118,7 +118,7 @@ class FmcwRadar:
         self.__S_signal = np.zeros((self.__tx_antennas.shape[0], self.__rx_antennas.shape[0], self.__N_chirps, self.__N_samples),dtype=complex)
 
     def show_parameters(self):
-        f_IF_max = self.__R_max*2*self.__sweepBandwidth/(self.__c*self.__T_chirp)
+        f_IF_max = self.__R_max*2*self.__chirp_Rate/(self.__c)
         print(f"Maximum unambiguous range: {self.__R_max:.2f} m")
         print(f"Maximum unambiguous IF frequency: {f_IF_max/1e6:.2f} MHz")
         print(f"Maximum unambiguous velocity: {self.__v_max:.2f} m/s")
@@ -152,10 +152,10 @@ class FmcwRadar:
         phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
 
         # Compute the phase difference from the target moving during the chirp
-        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_chirp) / self.__c 
+        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_between_chirps) / self.__c 
 
         # Compute the Intermediate frequency (IF) frequency:
-        f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
+        f_IF = (2*radial_distance*self.__chirp_Rate)/(self.__c) 
 
         # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
@@ -206,10 +206,10 @@ class FmcwRadar:
         phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
 
         # Compute the phase difference from the target moving during the chirp
-        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_chirp) / self.__c 
+        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_between_chirps) / self.__c 
 
         # Compute the Intermediate frequency (IF) frequency:
-        f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
+        f_IF = (2*radial_distance*self.__chirp_Rate)/(self.__c) 
 
         # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
