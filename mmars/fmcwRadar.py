@@ -227,18 +227,76 @@ class FmcwRadar:
             return 10*np.log10(self.__current_SNR)
         else:
             return self.__current_SNR
-        
+    
+
+    @property
     def get_IF_signal(self):
         return self.__IF_signal
     
+    @property
     def get_S_signal(self):
         return self.__S_signal
-
+    
+    @property
     def get_max_range(self):
         return self.__R_max
     
-    def get_N_samples(self):
-        return self.__N_samples
-    
+    @property
     def get_standardDeviation(self):
         return self.__standardDeviation
+    
+    @property
+    def get_position(self):
+        return self.__position
+
+    @property
+    def get_tx_antennas(self):
+        return self.__tx_antennas
+
+    @property
+    def get_rx_antennas(self):
+        return self.__rx_antennas
+
+    @property
+    def get_chirp_Rate(self):
+        return self.__chirp_Rate
+
+    @property
+    def get_T_between_chirps(self):
+        return self.__T_between_chirps
+
+    @property
+    def get_f_carrier(self):
+        return self.__f_carrier
+
+    @property
+    def get_N_samples(self):
+        return self.__N_samples
+
+    @property
+    def get_f_sampling(self):
+        return self.__f_sampling
+
+    @property
+    def get_N_chirps(self):
+        return self.__N_chirps
+
+    @property
+    def get_signalNoiseRatio(self):
+        return self.__signalNoiseRatio
+
+    @property
+    def get_transmitPower(self):
+        return self.__transmitPower
+
+    @property
+    def get_gain(self):
+        return self.__gain
+
+    @property
+    def get_radarCrossSection(self):
+        return self.__radarCrossSection
+    
+    @property
+    def get_wavelength(self):
+        return self.__wavelength

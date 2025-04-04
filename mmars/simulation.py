@@ -23,13 +23,13 @@ class Simulation:
     def run(self):
         print(f"Running simulation with {self.__radar_setup} and {self.__target_setup}")
         self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
-        idx = self.__radar_setup.get_IF_signal().shape
+        idx = self.__radar_setup.get_IF_signal.shape
         self.__frames = np.zeros((len(self.__x), idx[0], idx[1], idx[2], idx[3]), dtype=complex)
         self.__SNRs = np.zeros(len(self.__x))
 
         for i in tqdm(range(len(self.__x))):
             self.__radar_setup.radar_to_target_measures(self.__x[i], self.__y[i], self.__vx[i], self.__vy[i])
-            self.__frames[i] = self.__radar_setup.get_IF_signal()
+            self.__frames[i] = self.__radar_setup.get_IF_signal
             self.__SNRs[i] = self.__radar_setup.get_current_SNR()
     
     def run_tracking(self,
@@ -44,8 +44,8 @@ class Simulation:
 
 
         if self.__tracking_algorithm == "maximum_value":
-            max_range = self.__radar_setup.get_max_range()
-            N_samples = self.__radar_setup.get_N_samples()
+            max_range = self.__radar_setup.get_max_range
+            N_samples = self.__radar_setup.get_N_samples
             range_values = np.linspace(0, max_range, N_samples)
 
             k = 0       
@@ -59,7 +59,7 @@ class Simulation:
                 range_fft = np.abs(range_fft)
                 radial_distance = range_values[np.argmax(range_fft)]
 
-                idx = self.__radar_setup.get_IF_signal().shape
+                idx = self.__radar_setup.get_IF_signal.shape
                 phasors = np.zeros((idx[0]*idx[1], idx[3]), dtype=complex)
                 for i in range(idx[0]):
                     for j in range(idx[1]):
