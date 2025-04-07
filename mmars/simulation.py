@@ -13,7 +13,7 @@ class Simulation:
                  ):
         
         self.__frames = None
-        self.__flatten_frames = None
+        self.__SNR_at_frames = None
         self.__x = None
         self.__y = None
         self.__vx = None
@@ -26,11 +26,12 @@ class Simulation:
         self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
         idx = self.__radar_setup.get_IF_signal().shape
         self.__frames = np.zeros((len(self.__x), idx[0], idx[1], idx[2], idx[3]), dtype=complex)
+        self.__SNR_at_frames = np.zeros((len(self.__x), 1), dtype=np.float64)
 
         for i in tqdm(range(len(self.__x))):
             self.__radar_setup.radar_to_target_measures(self.__x[i], self.__y[i], self.__vx[i], self.__vy[i])
             self.__frames[i] = self.__radar_setup.get_IF_signal()
-        self.__flatten_frames = np.array([self.__frames[i].flatten() for i in range(self.__frames.shape[0])])
+            self.__SNR_at_frames[i] = self.__radar_setup.get_current_SNR()
     
     def run_tracking(self,
                      tracking_algorithm="maximum_value"
@@ -73,9 +74,15 @@ class Simulation:
             return_var = return_var[idx]
         return return_var
     
+    def get_number_of_frames(self):
+        return len(self.__frames)
+    
     def get_tracking_data(self):
         return self.__tracking_data_x, self.__tracking_data_y, self.__tracking_data_vx, self.__tracking_data_vy
     
+    def get_SNR(self):
+        return self.__SNR_at_frames
+
     def __max_val_tracking(self):
         max_range = self.__radar_setup.get_max_range()
         N_samples = self.__radar_setup.get_N_samples()
@@ -95,6 +102,7 @@ class Simulation:
             for i in range(idx[0]):
                 for j in range(idx[1]):
                     phasors[i*(idx[0]+1)+j] = frame[i][j][0]
+            #print(phasors.shape)
             
             R = phasors @ phasors.conj().T*(1/N_samples)
             ### MUSIC
@@ -167,4 +175,4 @@ class IndexFIFO:
             return np.array(self.data[self.idx + idx])
         else:
             return self.data[self.idx + idx]
-        
+    

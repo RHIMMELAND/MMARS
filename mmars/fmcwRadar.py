@@ -8,15 +8,14 @@ Created on Tue Mar 04 11:45:00 2025
 
 import numpy as np
 from scipy.constants import c
-import numba
 
 class FmcwRadar:
     def __init__(self, 
-                 position,
+                 position = np.array([[0,0]]),
                  tx_antennas = None,
                  rx_antennas = None, 
                  chirp_Rate = 30e6/1e-6, 
-                 T_chirp = 25.66e-6, 
+                 T_between_chirps = 25.66e-6, 
                  f_carrier = 77e9, 
                  N_samples = 256, 
                  f_sampling = 20e6, 
@@ -37,7 +36,7 @@ class FmcwRadar:
             The position of the radar in 2D space. The position is a 2x1 np.array.
         chirp_Rate : float
             The chirp rate of the radar in MHz/µs.
-        T_chirp : float
+        T_between_chirps : float
             The duration of the chirp in µs.
         f_carrier : float
             The carrier frequency of the radar in Hz.
@@ -69,7 +68,7 @@ class FmcwRadar:
         self.__tx_antennas = tx_antennas
         self.__rx_antennas = rx_antennas
         self.__chirp_Rate = chirp_Rate
-        self.__T_chirp = T_chirp
+        self.__T_between_chirps = T_between_chirps
         self.__f_carrier = f_carrier
         self.__N_samples = N_samples
         self.__f_sampling = f_sampling
@@ -82,7 +81,7 @@ class FmcwRadar:
 
         # Constants and derived values:
         self.__c = c                                        # speed of light
-        self.__sweepBandwidth = self.__chirp_Rate*self.__T_chirp         # sweep bandwidth
+
         self.__wavelength = self.__c/self.__f_carrier     # self.__wavelength
 
         if self.__tx_antennas is None:
@@ -97,8 +96,8 @@ class FmcwRadar:
                                     [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
-        #print(self.__tx_antennas)
-        #print(self.__rx_antennas)
+        print(self.__tx_antennas)
+        print(self.__rx_antennas)
 
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
@@ -106,12 +105,12 @@ class FmcwRadar:
         
         # Noise:
         received_power_SNR = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__signalNoiseRatio[1]**4 )
-        self.__standardDeviation = np.sqrt(received_power_SNR/10**(self.__signalNoiseRatio[0]/10)) # noise standard deviation
+        self.__standardDeviation = np.sqrt(received_power_SNR/10**((self.__signalNoiseRatio[0])/10)) # noise standard deviation
         self.__current_SNR = 0
 
         # Show parameters:
         self.__R_max = self.__f_sampling*self.__c/(2*self.__chirp_Rate)   # maximum unambiguous range
-        self.__v_max = self.__wavelength / (4 * self.__T_chirp) # maximum unambiguous velocity
+        self.__v_max = self.__wavelength / (4 * self.__T_between_chirps) # maximum unambiguous velocity
         self.__angle_max = np.pi/2                        # maximum unambiguous angle
 
         # Data matrix:
@@ -121,7 +120,7 @@ class FmcwRadar:
         self.__flatten_S_signal = self.__S_signal.flatten()
 
     def show_parameters(self):
-        f_IF_max = self.__R_max*2*self.__sweepBandwidth/(self.__c*self.__T_chirp)
+        f_IF_max = self.__R_max*2*self.__chirp_Rate/(self.__c)
         print(f"Maximum unambiguous range: {self.__R_max:.2f} m")
         print(f"Maximum unambiguous IF frequency: {f_IF_max/1e6:.2f} MHz")
         print(f"Maximum unambiguous velocity: {self.__v_max:.2f} m/s")
@@ -155,25 +154,28 @@ class FmcwRadar:
         phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
 
         # Compute the phase difference from the target moving during the chirp
-        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_chirp) / self.__c 
+        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_between_chirps) / self.__c 
 
         # Compute the Intermediate frequency (IF) frequency:
-        f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
+        f_IF = (2*radial_distance*self.__chirp_Rate)/(self.__c) 
 
         # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
 
         # Noise signal:
-        white_noise = (np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape) 
-                        + 1j*np.random.normal(0, self.__standardDeviation, self.__IF_signal.shape))/np.sqrt(2)
+        white_noise = ((np.random.normal(0, 1, self.__IF_signal.shape) 
+                        + 1j*np.random.normal(0, 1, self.__IF_signal.shape)) * self.__standardDeviation) / np.sqrt(2)
+        
         
         # Generate the IF signal
         time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
                 self.__IF_signal[tx_idx, rx_idx, :, :] = (np.exp(1j*2*np.pi*f_IF*(np.ones((self.__N_chirps,1))@time)) # Changes with ADC samples
+                                                         *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
                                                          *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
-                                                        )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]) # Changes with antennas
+                                                        )
+                
         self.__IF_signal *= np.sqrt(received_power) # Scale the signal based on the received power
         signal_power = np.mean(np.abs(self.__IF_signal)**2) # Compute the signal power
         noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
@@ -182,11 +184,12 @@ class FmcwRadar:
         self.__flatten_IF_signal = self.__IF_signal.flatten() # Flatten the signal for easier access
     
     def generate_S_signal(self, 
-                                target_x=0, 
-                                target_y=10, 
-                                target_velocity_x=0, 
-                                target_velocity_y=5
-                                ):
+                                 target_x=0, 
+                                 target_y=10, 
+                                 target_velocity_x=0, 
+                                 target_velocity_y=5
+                                 ):
+        
         target_position = np.array([target_x, target_y])
 
         # Compute the radial distance to the target
@@ -206,10 +209,10 @@ class FmcwRadar:
         phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
 
         # Compute the phase difference from the target moving during the chirp
-        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_chirp) / self.__c 
+        phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_between_chirps) / self.__c 
 
         # Compute the Intermediate frequency (IF) frequency:
-        f_IF = (2*radial_distance*self.__sweepBandwidth)/(self.__c*self.__T_chirp) 
+        f_IF = (2*radial_distance*self.__chirp_Rate)/(self.__c) 
 
         # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
@@ -219,8 +222,8 @@ class FmcwRadar:
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
                 self.__S_signal[tx_idx, rx_idx, :, :] = (np.exp(1.j * freqs * self.__N_samples/2) * np.sin((freqs - f_IF /self.__f_sampling * 2 * np.pi) * (self.__N_samples + 1) * 1/2) / np.sin((freqs - f_IF/self.__f_sampling * 2 * np.pi)/2)
-                                            )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx])
-        self.__S_signal *= np.sqrt(received_power) # Scale the signal based on the received power
+                                              )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx])
+        self.__S_signal *= np.sqrt(received_power) # Scale the signal based on the received power # Scale the signal based on the received power
         self.__flatten_S_signal = self.__S_signal.flatten()
 
     def get_current_SNR(self, decibels = True):
