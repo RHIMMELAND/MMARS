@@ -214,12 +214,26 @@ class FmcwRadar:
         # Compute the received power:
         received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * radial_distance**4 )
         
+        # # Generate the IF signal
+        # freqs = np.linspace(0, 2 * np.pi,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
+        # for tx_idx in range(self.__tx_antennas.shape[0]):
+        #     for rx_idx in range(self.__rx_antennas.shape[0]):
+        #         self.__S_signal[tx_idx, rx_idx, :, :] = (np.exp(-1.j * freqs * self.__N_samples/2) * np.sin((freqs - f_IF /self.__f_sampling * 2 * np.pi) * (self.__N_samples + 1) * 1/2) / np.sin((freqs - f_IF/self.__f_sampling * 2 * np.pi)/2)
+        #                                       )*np.exp(-1j*phase_diff_TX_RX[tx_idx,rx_idx])
+
+        IF_signal = np.zeros(self.__S_signal.shape, dtype=complex) # Initialize the IF signal
         # Generate the IF signal
-        freqs = np.linspace(0, 2 * np.pi,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
+        time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
-                self.__S_signal[tx_idx, rx_idx, :, :] = (np.exp(-1.j * freqs * self.__N_samples/2) * np.sin((freqs - f_IF /self.__f_sampling * 2 * np.pi) * (self.__N_samples + 1) * 1/2) / np.sin((freqs - f_IF/self.__f_sampling * 2 * np.pi)/2)
-                                              )*np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx])
+                IF_signal[tx_idx, rx_idx, :, :] = (np.exp(1j*2*np.pi*f_IF*(np.ones((self.__N_chirps,1))@time)) # Changes with ADC samples
+                                                         *np.exp(1j*phase_diff_TX_RX[tx_idx,rx_idx]*(np.ones((self.__N_chirps,1))@np.ones((1,self.__N_samples)))) # Changes with antennas
+                                                         *np.exp(1j*phase_from_velocity*(np.linspace(0,self.__N_chirps-1,self.__N_chirps)[:,np.newaxis]@np.ones((1,self.__N_samples)))) # Changes with chirps
+                                                        )
+        self.__S_signal = np.fft.fft(IF_signal, axis=3) # Compute the FFT of the IF signal
+        IF_signal_energy = IF_signal.flatten().conj().T @ IF_signal.flatten()
+        S_signal_energy = self.__S_signal.flatten().conj().T @ self.__S_signal.flatten()
+        self.__S_signal *= np.sqrt(IF_signal_energy/S_signal_energy)
         self.__S_signal *= np.sqrt(received_power) # Scale the signal based on the received power
 
     def get_current_SNR(self, decibels = True):
