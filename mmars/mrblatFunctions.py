@@ -124,35 +124,34 @@ class MRBLaT_Functions(FmcwRadar):
 
         return partial_sinc/self.__N_samples
 
+    def D_KL(self, params, Z_data, phi_bar_last_x, phi_bar_last_y, radar_model_1, outputmode=(1,1,1,1), print_output=False):
 
-def D_KL(params, Z_data, phi_bar_last_x, phi_bar_last_y, Lambda_z, radar_model_1, mrblatcomp, outputmode=(1,1,1,1), print_output=False):
+        eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
 
-    eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
+        # Last estimate of the trajectory
+        radar_model_1.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
+        S_N_lack = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
 
-    # Last estimate of the trajectory
-    radar_model_1.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
-    S_N_lack = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        # Generate the S signal with the new parameters
+        radar_model_1.generate_S_signal(eps_bar_x, eps_bar_y)
+        s_n = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        
+        # Compute the alpha_hat value
+        alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))
 
-    # Generate the S signal with the new parameters
-    radar_model_1.generate_S_signal(eps_bar_x, eps_bar_y)
-    s_n = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
-    
-    # Compute the alpha_hat value
-    alpha_hat_xy = np.abs(mrblatcomp.alpha_hat(S_N_lack, Z_data))
+        s_n_H = s_n.conj().T
 
-    s_n_H = s_n.conj().T
+        term_1 = -np.real(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
+        term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ self.__lambda_z @ s_n)
+        
+        jac = self.jacobian_S(np.array([eps_bar_x, eps_bar_y]))
+        term_3_inner_prod = np.real(jac.conj().T @ self.__lambda_z @ jac)
+        
+        term_3 = np.abs(alpha_hat_xy)**2 * np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        k = 2
+        entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
+        
+        if print_output:
+            print(term_1, term_2, term_3, entropy)
 
-    term_1 = -np.real(alpha_hat_xy * (s_n_H @ Lambda_z @ Z_data))
-    term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ Lambda_z @ s_n)
-    
-    jac = mrblatcomp.jacobian_S(np.array([eps_bar_x, eps_bar_y]))
-    term_3_inner_prod = np.real(jac.conj().T @ Lambda_z @ jac)
-    
-    term_3 = np.abs(alpha_hat_xy)**2 * np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
-    k = 2
-    entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
-    
-    if print_output:
-        print(term_1, term_2, term_3, entropy)
-
-    return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
+        return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
