@@ -13,7 +13,6 @@ class MRBLaT_Functions(Simulation):
     def __init__(self, radar_model, target_model): 
         super().__init__(radar_model, target_model)
         self.__radar_setup = radar_model
-        self.__target_setup = target_model
 
         self.__flatten_data_size = self.__radar_setup.get_IF_signal.shape[0]* self.__radar_setup.get_IF_signal.shape[1] * self.__radar_setup.get_IF_signal.shape[3]
         self.__standardDeviation = self.__radar_setup.get_standardDeviation
@@ -157,3 +156,6 @@ class MRBLaT_Functions(Simulation):
             print(term_1, term_2, term_3, entropy)
 
         return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
+    
+    def run_tracking(self):
+        pass

@@ -96,8 +96,8 @@ class FmcwRadar:
                                     [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
-        print(self.__tx_antennas)
-        print(self.__rx_antennas)
+        # print(self.__tx_antennas)
+        # print(self.__rx_antennas)
 
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
@@ -166,7 +166,7 @@ class FmcwRadar:
         
         
         # Generate the IF signal
-        time = (np.arange(256) / self.__f_sampling)[np.newaxis] # Time variable running from 0 to N_samples/F_sampling
+        time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples, endpoint=False)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
                 self.__IF_signal[tx_idx, rx_idx, :, :] = (np.exp(1j*2*np.pi*f_IF*(np.ones((self.__N_chirps,1))@time)) # Changes with ADC samples
