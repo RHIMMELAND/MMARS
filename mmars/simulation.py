@@ -5,8 +5,9 @@ from tqdm import tqdm
 from .target import Target
 from .fmcwRadar import FmcwRadar
 
+from abc import ABC, abstractmethod
 
-class Simulation:
+class Simulation(ABC):
     def __init__(self, 
                  radar_setup: FmcwRadar, 
                  target_setup: Target
@@ -31,55 +32,59 @@ class Simulation:
             self.__radar_setup.radar_to_target_measures(self.__x[i], self.__y[i], self.__vx[i], self.__vy[i])
             self.__frames[i] = self.__radar_setup.get_IF_signal
             self.__SNRs[i] = self.__radar_setup.get_current_SNR()
+
+    @abstractmethod
+    def run_tracking(self):
+        pass
     
-    def run_tracking(self,
-                     tracking_algorithm="maximum_value"
-                     ):
+    # def run_tracking(self,
+    #                  tracking_algorithm="maximum_value"
+    #                  ):
 
-        self.__tracking_algorithm = tracking_algorithm
-        self.__tracking_data_x = np.zeros(len(self.__frames))
-        self.__tracking_data_y = np.zeros(len(self.__frames))
-        self.__tracking_data_vx = np.zeros(len(self.__frames))
-        self.__tracking_data_vy = np.zeros(len(self.__frames))
+    #     self.__tracking_algorithm = tracking_algorithm
+    #     self.__tracking_data_x = np.zeros(len(self.__frames))
+    #     self.__tracking_data_y = np.zeros(len(self.__frames))
+    #     self.__tracking_data_vx = np.zeros(len(self.__frames))
+    #     self.__tracking_data_vy = np.zeros(len(self.__frames))
 
 
-        if self.__tracking_algorithm == "maximum_value":
-            max_range = self.__radar_setup.get_max_range
-            N_samples = self.__radar_setup.get_N_samples
-            range_values = np.linspace(0, max_range, N_samples)
+    #     if self.__tracking_algorithm == "maximum_value":
+    #         max_range = self.__radar_setup.get_max_range
+    #         N_samples = self.__radar_setup.get_N_samples
+    #         range_values = np.linspace(0, max_range, N_samples)
 
-            k = 0       
+    #         k = 0       
 
-            for frame in tqdm(self.__frames):
-                range_fft = np.fft.fft(frame[0][0][0])
-                plt.close()
-                plt.plot(range_values, 10*np.log(np.abs(range_fft)))
-                plt.title(f"Noisefloor {np.mean(10*np.log(np.abs(range_fft)))}.2f dB, Peak {np.max(10*np.log(np.abs(range_fft)))}.2f dB")
+    #         for frame in tqdm(self.__frames):
+    #             range_fft = np.fft.fft(frame[0][0][0])
+    #             plt.close()
+    #             plt.plot(range_values, 10*np.log(np.abs(range_fft)))
+    #             plt.title(f"Noisefloor {np.mean(10*np.log(np.abs(range_fft)))}.2f dB, Peak {np.max(10*np.log(np.abs(range_fft)))}.2f dB")
 
-                range_fft = np.abs(range_fft)
-                radial_distance = range_values[np.argmax(range_fft)]
+    #             range_fft = np.abs(range_fft)
+    #             radial_distance = range_values[np.argmax(range_fft)]
 
-                idx = self.__radar_setup.get_IF_signal.shape
-                phasors = np.zeros((idx[0]*idx[1], idx[3]), dtype=complex)
-                for i in range(idx[0]):
-                    for j in range(idx[1]):
-                        phasors[i*(idx[0]+1)+j] = frame[i][j][0]
+    #             idx = self.__radar_setup.get_IF_signal.shape
+    #             phasors = np.zeros((idx[0]*idx[1], idx[3]), dtype=complex)
+    #             for i in range(idx[0]):
+    #                 for j in range(idx[1]):
+    #                     phasors[i*(idx[0]+1)+j] = frame[i][j][0]
                 
-                R = phasors @ phasors.conj().T*(1/N_samples)
-                ### MUSIC
-                music = doa_music(R, 1, scan_angles = np.linspace(-90, 90, 1001))
-                anglebins = np.linspace(-90, 90, 1001)
+    #             R = phasors @ phasors.conj().T*(1/N_samples)
+    #             ### MUSIC
+    #             music = doa_music(R, 1, scan_angles = np.linspace(-90, 90, 1001))
+    #             anglebins = np.linspace(-90, 90, 1001)
 
-                detected_angle = anglebins[np.argmax(music)]
+    #             detected_angle = anglebins[np.argmax(music)]
 
-                self.__tracking_data_x[k] = radial_distance*np.cos(np.deg2rad(90-detected_angle))
-                self.__tracking_data_y[k] = radial_distance*np.sin(np.deg2rad(90-detected_angle))
-                self.__tracking_data_vx[k] = 0
-                self.__tracking_data_vy[k] = 0
+    #             self.__tracking_data_x[k] = radial_distance*np.cos(np.deg2rad(90-detected_angle))
+    #             self.__tracking_data_y[k] = radial_distance*np.sin(np.deg2rad(90-detected_angle))
+    #             self.__tracking_data_vx[k] = 0
+    #             self.__tracking_data_vy[k] = 0
 
-                k = k+1
-        else:
-            raise ValueError("Tracking algorithm not supported")
+    #             k = k+1
+    #     else:
+    #         raise ValueError("Tracking algorithm not supported")
         
     def plot(self):
         if self.__x is None:
@@ -104,6 +109,9 @@ class Simulation:
     
     def get_SNR(self):
         return self.__SNRs
+    
+    def get_number_of_frames(self):
+        return len(self.__frames)
     
 
 
