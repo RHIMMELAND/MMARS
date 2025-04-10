@@ -5,26 +5,28 @@ from scipy.sparse import csr_matrix
 from scipy.constants import c
 
 from .target import Target
-from .fmcwRadar import FmcwRadar
+from .simulation import Simulation
 
 
-class MRBLaT_Functions(FmcwRadar):
+class MRBLaT_Functions(Simulation):
     
-    def __init__(self): 
-        super().__init__()
+    def __init__(self, radar_model, target_model): 
+        super().__init__(radar_model, target_model)
+        self.__radar_setup = radar_model
+        self.__target_setup = target_model
 
-        self.__flatten_data_size = self.get_IF_signal.shape[0]* self.get_IF_signal.shape[1] * self.get_IF_signal.shape[3]
-        self.__standardDeviation = self.get_standardDeviation
+        self.__flatten_data_size = self.__radar_setup.get_IF_signal.shape[0]* self.__radar_setup.get_IF_signal.shape[1] * self.__radar_setup.get_IF_signal.shape[3]
+        self.__standardDeviation = self.__radar_setup.get_standardDeviation
         self.__position = np.array([0, 0])
-        self.__tx_antennas = self.get_tx_antennas
-        self.__rx_antennas = self.get_rx_antennas
-        self.__transmitPower = self.get_transmitPower
-        self.__gain = self.get_gain
-        self.__radarCrossSection = self.get_radarCrossSection
-        self.__wavelength = self.get_wavelength
-        self.__N_samples = self.get_N_samples
-        self.__chirp_Rate = self.get_chirp_Rate
-        self.__f_sampling = self.get_f_sampling
+        self.__tx_antennas = self.__radar_setup.get_tx_antennas
+        self.__rx_antennas = self.__radar_setup.get_rx_antennas
+        self.__transmitPower = self.__radar_setup.get_transmitPower
+        self.__gain = self.__radar_setup.get_gain
+        self.__radarCrossSection = self.__radar_setup.get_radarCrossSection
+        self.__wavelength = self.__radar_setup.get_wavelength
+        self.__N_samples = self.__radar_setup.get_N_samples
+        self.__chirp_Rate = self.__radar_setup.get_chirp_Rate
+        self.__f_sampling = self.__radar_setup.get_f_sampling
 
         self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
         self.__lambda_z = csr_matrix(self.__lambda_z)
@@ -124,17 +126,17 @@ class MRBLaT_Functions(FmcwRadar):
 
         return partial_sinc/self.__N_samples
 
-    def D_KL(self, params, Z_data, phi_bar_last_x, phi_bar_last_y, radar_model_1, outputmode=(1,1,1,1), print_output=False):
+    def D_KL(self, params, Z_data, phi_bar_last_x, phi_bar_last_y, outputmode=(1,1,1,1), print_output=False):
 
         eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
 
         # Last estimate of the trajectory
-        radar_model_1.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
-        S_N_lack = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
+        S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
 
         # Generate the S signal with the new parameters
-        radar_model_1.generate_S_signal(eps_bar_x, eps_bar_y)
-        s_n = radar_model_1.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        self.__radar_setup.generate_S_signal(eps_bar_x, eps_bar_y)
+        s_n = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
         
         # Compute the alpha_hat value
         alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))
