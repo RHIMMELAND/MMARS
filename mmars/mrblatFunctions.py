@@ -104,7 +104,7 @@ class MRBLaT_Functions(Simulation):
         """sinc function"""
         r = np.sqrt((x - self.__x_r)**2 + (y - self.__y_r)**2)
         f_IF = 2 * self.__chirp_Rate * r / c
-        temp = 2*np.pi*(f_IF*(1/self.__f_sampling)-self.__freqs/self.__N_samples)
+        temp = 2*np.pi*(f_IF/self.__f_sampling-(self.__freqs/self.__N_samples))
         K = np.exp(1.j * (self.__N_samples-1)*(temp/2))
         sinc_fnc = K * np.sin(self.__N_samples * temp/2)/np.sin(temp/2)
 
