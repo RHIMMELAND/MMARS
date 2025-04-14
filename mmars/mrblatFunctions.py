@@ -1,5 +1,4 @@
 import numpy as np
-#import matplotlib.pyplot as plt
 
 from scipy.sparse import csr_matrix
 from scipy.constants import c
