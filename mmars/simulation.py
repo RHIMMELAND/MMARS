@@ -6,10 +6,11 @@ from .target import Target
 from .fmcwRadar import FmcwRadar
 
 from abc import ABC, abstractmethod
+from typing import List
 
 class Simulation(ABC):
     def __init__(self, 
-                 radar_setup: FmcwRadar, 
+                 radar_setup: List[FmcwRadar], 
                  target_setup: Target
                  ):
         
@@ -21,6 +22,16 @@ class Simulation(ABC):
         
         self.__radar_setup = radar_setup
         self.__target_setup = target_setup
+
+        # Check that all radars have the same tx_antennas, rx_antennas, N_chirps and N_samples, if radar_setup is a list
+        if isinstance(radar_setup, list) and len(radar_setup) > 0:
+            for radar in self.__radar_setup:
+                if len(radar.get_tx_antennas) != len(self.__radar_setup[0].get_tx_antennas) or \
+                len(radar.get_rx_antennas) != len(self.__radar_setup[0].get_rx_antennas) or \
+                radar.get_N_chirps != self.__radar_setup[0].get_N_chirps or \
+                radar.get_N_samples != self.__radar_setup[0].get_N_samples:
+                    raise ValueError("All radars must have the same tx_antennas, rx_antennas, N_chirps and N_samples")
+        
     def run(self):
         print(f"Running simulation with {self.__radar_setup} and {self.__target_setup}")
         self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
