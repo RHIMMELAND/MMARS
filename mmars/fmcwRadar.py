@@ -298,3 +298,22 @@ class FmcwRadar:
     @property
     def get_wavelength(self):
         return self.__wavelength
+    
+    @property
+    def get_parameters(self):
+        return { "position": self.__position,
+                 "tx_antennas": self.__tx_antennas, 
+                 "rx_antennas": self.__rx_antennas, 
+                 "chirp_Rate": self.__chirp_Rate, 
+                 "T_between_chirps": self.__T_between_chirps, 
+                 "f_carrier": self.__f_carrier, 
+                 "N_samples": self.__N_samples, 
+                 "f_sampling": self.__f_sampling, 
+                 "N_chirps": self.__N_chirps, 
+                 "transmitPower": self.__transmitPower,
+                 "gain": self.__gain,
+                 "radarCrossSection": self.__radarCrossSection,
+                 "signalNoiseRatio": self.__signalNoiseRatio,
+                 "standardDeviation": self.__standardDeviation,
+                 "wavelength": self.__wavelength
+                }
