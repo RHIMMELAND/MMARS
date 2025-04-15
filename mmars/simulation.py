@@ -5,9 +5,8 @@ from tqdm import tqdm
 from .target import Target
 from .fmcwRadar import FmcwRadar
 
-from abc import ABC, abstractmethod
 
-class Simulation(ABC):
+class Simulation():
     def __init__(self, 
                  radar_setup: FmcwRadar, 
                  target_setup: Target

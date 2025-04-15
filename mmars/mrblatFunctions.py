@@ -4,38 +4,37 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.constants import c
 
-from .target import Target
-from .simulation import Simulation
+from .fmcwRadar import FmcwRadar
 
 from numba import njit
 
-class MRBLaT_Functions_new(Simulation):
+class MRBLaT_Functions():
     
-    def __init__(self, radar_model, target_model): 
-        super().__init__(radar_model, target_model)
-        self.__radar_setup = radar_model
+    def __init__(self, radar_parameters): 
 
-        self.__flatten_data_size = self.__radar_setup.get_IF_signal.shape[0]* self.__radar_setup.get_IF_signal.shape[1] * self.__radar_setup.get_IF_signal.shape[3]
-        self.__standardDeviation = self.__radar_setup.get_standardDeviation
-        self.__position = np.array([0, 0])
-        self.__tx_antennas = self.__radar_setup.get_tx_antennas
-        self.__rx_antennas = self.__radar_setup.get_rx_antennas
-        self.__transmitPower = self.__radar_setup.get_transmitPower
-        self.__gain = self.__radar_setup.get_gain
-        self.__radarCrossSection = self.__radar_setup.get_radarCrossSection
-        self.__wavelength = self.__radar_setup.get_wavelength
-        self.__N_samples = self.__radar_setup.get_N_samples
-        self.__chirp_Rate = self.__radar_setup.get_chirp_Rate
-        self.__f_sampling = self.__radar_setup.get_f_sampling
-
+        self.__standardDeviation = radar_parameters["standardDeviation"]
+        self.__position = radar_parameters["position"]
+        self.__tx_antennas = radar_parameters["tx_antennas"]
+        self.__rx_antennas = radar_parameters["rx_antennas"]
+        self.__transmitPower = radar_parameters["transmitPower"]
+        self.__gain = radar_parameters["gain"]
+        self.__radarCrossSection = radar_parameters["radarCrossSection"]
+        self.__wavelength = radar_parameters["wavelength"]
+        self.__N_samples = radar_parameters["N_samples"]
+        self.__chirp_Rate = radar_parameters["chirp_Rate"]
+        self.__f_sampling = radar_parameters["f_sampling"]
+        self.__flatten_data_size = len(self.__tx_antennas) * len(self.__rx_antennas) * self.__N_samples
+        
         self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
         self.__lambda_z = csr_matrix(self.__lambda_z)
 
         self.__freqs = np.linspace(0, self.__N_samples, self.__N_samples, endpoint=False)[np.newaxis]
         self.__ds = np.arange(0, len(self.__tx_antennas) * len(self.__rx_antennas) * self.__wavelength/2, self.__wavelength/2)  # should be dynamic
         self.__A = np.sqrt(self.__transmitPower * self.__gain * self.__radarCrossSection * self.__wavelength**2 / (4 * np.pi)**3)
-        self.__x_r = self.__position[0]
-        self.__y_r = self.__position[1]
+        self.__x_r = self.__position[0,0]
+        self.__y_r = self.__position[0,1]
+
+        self.__radar_setup = FmcwRadar(self.__position, self.__tx_antennas, self.__rx_antennas, self.__chirp_Rate, 1, radar_parameters["f_carrier"], self.__N_samples, self.__f_sampling, 1, self.__transmitPower, self.__gain, self.__radarCrossSection, [0.1,0.1]) 
 
     def alpha_hat(self, s_n, data_fourier):
         # Compute conjugate transpose once
@@ -102,7 +101,6 @@ class MRBLaT_Functions_new(Simulation):
         partial_A_phi = 1.j * 2 * np.pi * np.exp(1.j * 2 * np.pi * phi)
 
         partial_A_y = partial_A_phi * partial_phi_DeltaR * partial_DeltaR_y
-        print(f"partial_A_y: {partial_A_y}")
         return partial_A_y[:, np.newaxis]
     
     def sinc(self, x, y):
@@ -170,9 +168,6 @@ class MRBLaT_Functions_new(Simulation):
             print(term_1, term_2, term_3, entropy)
 
         return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
-    
-    def run_tracking(self):
-        pass
 
 @njit
 def partial_sinc_speed(N_SAMPLES,CHRIP_RATE,F_SAMPLING,x,y,X_R,Y_R,FREQS):
