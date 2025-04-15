@@ -6,7 +6,6 @@ from .target import Target
 from .fmcwRadar import FmcwRadar
 
 from abc import ABC, abstractmethod
-from typing import List
 
 class Simulation(ABC):
     def __init__(self, 

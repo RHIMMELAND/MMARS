@@ -80,8 +80,8 @@ class Target:
         # Generate trajectory based on type
         for i in range(1, num_steps):
             if trajectory_type == "linear":
-                y[i] = y[i-1] + self.__start_velocity * self.__T_frame
-                x[i] = x[i-1]  # Straight line
+                x[i] = x[i-1] + self.__start_velocity * self.__T_frame
+                y[i] = y[i-1]  # Straight line
             elif trajectory_type == "sinusoidal":
                 y[i] = y[i-1] + self.__start_velocity * self.__T_frame
                 x[i] = self.__start_position[0,0] + 10 * np.sin(0.1 * (y[i]-self.__start_position[0,1]))  # Sine wave path
