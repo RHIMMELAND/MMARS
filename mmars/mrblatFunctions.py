@@ -7,6 +7,7 @@ from scipy.constants import c
 from .target import Target
 from .simulation import Simulation
 
+from numba import njit
 
 class MRBLaT_Functions_new(Simulation):
     
@@ -112,6 +113,7 @@ class MRBLaT_Functions_new(Simulation):
         sinc_fnc = K * np.sin(self.__N_samples * temp / 2) / np.sin(temp / 2)
         return sinc_fnc/self.__N_samples
     
+<<<<<<< HEAD
     def partial_sinc_x(self, x, y):
         N_s = self.__N_samples
         S = self.__chirp_Rate
@@ -133,6 +135,29 @@ class MRBLaT_Functions_new(Simulation):
         Y_R = self.__y_r
         j = 1.j
         f = self.__freqs
+=======
+    def partial_sinc(self, x, y):
+        """sinc fnc (fourier transform of window fnc) partially differentiated w.r.t. first entry"""
+
+        return partial_sinc_speed(self.__N_samples, self.__chirp_Rate, self.__f_sampling, x, y, self.__x_r, self.__y_r, self.__freqs)
+
+
+
+        # N_SAMPLES = self.__N_samples
+        # CHRIP_RATE = self.__chirp_Rate
+        # F_SAMPLING = self.__f_sampling
+        # X_R = self.__x_r
+        # Y_R = self.__y_r
+        # jjj = 1.j
+        # FREQS = self.__freqs
+
+        # # from Maple:
+        # partial_sinc = N_SAMPLES * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.exp(jjj * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1)) - np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) ** 2 * np.exp(jjj * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1)) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) + np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * jjj * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * (N_SAMPLES - 1) * np.exp(jjj * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1))
+
+        # return partial_sinc/self.__N_samples
+    
+        # partial_sinc = self.__N_samples * np.pi * self.__chirp_Rate * ((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) ** (-0.1e1 / 0.2e1) / c / self.__f_sampling * (2 * x - 2 * self.__x_r) * np.cos(self.__N_samples * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) / np.sin(np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) * np.exp(1.j * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples) * (self.__N_samples - 1)) - np.sin(self.__N_samples * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) / np.sin(np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) ** 2 * np.exp(1.j * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples) * (self.__N_samples - 1)) * np.pi * self.__chirp_Rate * ((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) ** (-0.1e1 / 0.2e1) / c / self.__f_sampling * (2 * x - 2 * self.__x_r) * np.cos(np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) + np.sin(self.__N_samples * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) / np.sin(np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples)) * 1.j * np.pi * self.__chirp_Rate * ((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) ** (-0.1e1 / 0.2e1) / c / self.__f_sampling * (2 * x - 2 * self.__x_r) * (self.__N_samples - 1) * np.exp(1.j * np.pi * (2 * self.__chirp_Rate * np.sqrt((x - self.__x_r) ** 2 + (y - self.__y_r) ** 2) / c / self.__f_sampling - self.__freqs / self.__N_samples) * (self.__N_samples - 1))
+>>>>>>> 55ae1df7863d0896a1579e5d01e51d9774da92bb
 
         # from Maple:
         partial_sinc = N_s * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) - np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) ** 2 * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) + np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * j * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * (N_s - 1) * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1))
@@ -172,3 +197,8 @@ class MRBLaT_Functions_new(Simulation):
     
     def run_tracking(self):
         pass
+
+@njit
+def partial_sinc_speed(N_SAMPLES,CHRIP_RATE,F_SAMPLING,x,y,X_R,Y_R,FREQS):
+    partial_sinc = N_SAMPLES * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.exp(1.j * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1)) - np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) ** 2 * np.exp(1.j * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1)) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) + np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * 1.j * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * (N_SAMPLES - 1) * np.exp(1.j * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES) * (N_SAMPLES - 1))
+    return partial_sinc/N_SAMPLES
