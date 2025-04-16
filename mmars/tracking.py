@@ -140,23 +140,10 @@ class Tracking():
                     alpha = fifo_counter+1
                     beta = np.zeros((4, 1))
                     for n in range(1 + N - fifo_counter, N+1):
-                        #beta += np.linalg.abs(G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1]))**2  + G_inv@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv_T
                         outer_product_dummy = G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1])
-                        #print(np.linalg.diagonal(G_inv@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv_T))
                         beta += np.abs(outer_product_dummy)**2 + np.linalg.diagonal(G_inv_T@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv)[:,np.newaxis]
-                    #Lambda_a = np.linalg.inv(beta/alpha)
-                    #print(np.abs(outer_product_dummy)**2)
-                    #print(G_inv_T@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv)
-                    # print(phi_barbar_list[0])
-                    # print(phi_barbar_list[1])
-                    # return 0
-                    #return
-                    #print(phi_bar_list[1])
-                    #print(1/beta)
                     Lambda_a = 1/(beta + 1) 
-                    Lambda_a = alpha*np.eye(4)*Lambda_a #np.diag(Lambda_a)
-                    #print(Lambda_a.shape)
-                    #print(Lambda_a)
+                    Lambda_a = alpha*np.eye(4)*Lambda_a 
 
             x0 = (phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1])
             if fifo_counter < fifo_length:
