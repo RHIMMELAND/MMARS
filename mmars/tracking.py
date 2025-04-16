@@ -37,7 +37,7 @@ class Tracking():
         docstring
         """
 
-        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1)
+        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.01, 0.01)
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -63,7 +63,7 @@ class Tracking():
         phi_barbar_list = np.zeros((N_frames, 4, 4))
 
         # Initialze the Lambda a matrix
-        initial_process_noise_precision = 1
+        initial_process_noise_precision = 1/8
         Lambda_a = np.eye((4))*initial_process_noise_precision
 
         fifo_counter = 0
@@ -83,9 +83,7 @@ class Tracking():
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = np.linalg.pinv(np.array([[D_KL_result.x[2],0,0,0], [0,D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
-
-            if N == 0:
-                for k in range(self.__N_radar):
+                if N == 0:
                     phi_barbar_list[N] += np.linalg.pinv(eps_barbar_inv_list[k, N]) / self.__N_radar
                     phi_bar_list[N] += eps_bar_list[k, N] / self.__N_radar
 
@@ -134,8 +132,8 @@ class Tracking():
                 if N >= 1:
                     alpha = N+1
                     beta = np.zeros((4, 4))
-                    for i in range(N+1):
-                        beta += np.linalg.norm(G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1]))**2  + G_inv@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv_T
+                    for m in range(N+1):
+                        beta += np.linalg.norm(G_inv@(phi_bar_list[m]-T@phi_bar_list[m-1]))**2  + G_inv@(phi_barbar_list[m]+T@phi_barbar_list[m-1]@T_T)@G_inv_T
                     Lambda_a = np.linalg.pinv(beta/alpha)
 
             if fifo_counter < fifo_length:
