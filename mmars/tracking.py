@@ -35,11 +35,13 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-    def run_mrblat(self, T_frame, x0=(0,5,1e-2,1e-2), N_iter = 100, N_frames = None, bound = [(-100,100), (0.1,100), (0.00001, 100), (0.00001, 100)], fifo_length = 80):   
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-100,100), (0.1,100), (0.00001, 100), (0.00001, 100)], fifo_length = 80):   
 
         """
         docstring
         """
+
+        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.01, 0.01)
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -64,14 +66,10 @@ class Tracking():
         phi_bar_list = np.zeros((N_frames, 4, 1)) # OBS!, +2->None
         phi_barbar_list = np.zeros((N_frames, 4, 4)) # OBS!, +2->None
 
-        initial_variance = 1e-2
-        phi_bar_list[0] = self.__initial_kinematics
-        phi_barbar_list[0] = np.eye((4))*initial_variance
-
         initial_process_noise_precision = 1/8
         Lambda_a = np.eye((4))*initial_process_noise_precision
 
-        fifo_counter = 1
+        fifo_counter = 0
         mrblat_functions_list = []
         for k in range(self.__N_radar):
             mrblat_functions_list.append(mmars.MRBLaT_Functions(self.__radar_parameters[k]))
@@ -80,15 +78,16 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, phi_bar_list[N-1,0,0], phi_bar_list[N-1,1,0], (1,1,1,1), False), method='nelder-mead')
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = np.linalg.pinv(np.array([[D_KL_result.x[2],0,0,0], [0,D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
-                phi_bar_list[N] = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
-                print(k, D_KL_result.x[2], D_KL_result.x[3])
+                if N == 0:
+                    phi_bar_list[N] += eps_bar_list[k, N]/self.__N_radar
+                    phi_barbar_list[N] += np.linalg.pinv(eps_barbar_inv_list[k, N])/self.__N_radar
             for _ in range(N_iter):
-                for n in range(N - fifo_counter, N):
-                    if N == 1:
+                for n in range(N - fifo_counter, N+1):
+                    if N == 0:
                         pass
                     elif n == 0:
                         phi_bar_bar_inv = 0
@@ -100,9 +99,8 @@ class Tracking():
                         phi_barbar_list[n] = phi_bar_bar
 
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        # print(phi_bar.shape)
                         phi_bar_list[n] = phi_bar
-                    elif n == N-1:
+                    elif n == N:
                         phi_bar_bar_inv = 0
                         eps_barbar_inv_eps_bar_sum = 0
                         for k in range(self.__N_radar):
@@ -112,7 +110,6 @@ class Tracking():
                         phi_barbar_list[n] = phi_bar_bar
                     
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        # print(phi_bar.shape)
                         phi_bar_list[n] = phi_bar
                     else:
                         phi_bar_bar_inv = 0
@@ -124,15 +121,14 @@ class Tracking():
                         phi_barbar_list[n] = phi_bar_bar
 
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        # print(phi_bar.shape)
                         phi_bar_list[n] = phi_bar
-        
-                # if N >= 1:
-                #     alpha = N+1
-                #     beta = np.zeros((4, 4))
-                #     for i in range(N - fifo_counter, N):
-                #         beta += np.linalg.norm(G_inv@(phi_bar_list[n+1]-T@phi_bar_list[n]))**2  + G_inv@(phi_barbar_list[n+1]+T@phi_barbar_list[n]@T_T)@G_inv_T
-                #     Lambda_a = np.linalg.pinv(beta/alpha)
+
+                if N >= 1:
+                    alpha = N+1
+                    beta = np.zeros((4, 4))
+                    for n in range(N - fifo_counter, N+1):
+                        beta += np.linalg.norm(G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1]))**2  + G_inv@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv_T
+                    Lambda_a = np.linalg.pinv(beta/alpha)
 
             x0 = (phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1])
             if fifo_counter < fifo_length:
