@@ -51,7 +51,6 @@ class Tracking():
         T_T = T.T
 
         G = np.diagflat([(T_frame**2)/2,(T_frame**2)/2,T_frame,T_frame])
-        print(G)
         G_inv = np.linalg.inv(G)
         G_inv_T = G_inv.T
         G_T = G.T
@@ -67,7 +66,6 @@ class Tracking():
         phi_bar_list = np.zeros((N_frames, 4, 1))
         phi_barbar_list = np.zeros((N_frames, 4, 4))
 
-        # Initialze the Lambda a matrix
         initial_process_noise_precision = 1/8
         Lambda_a = np.eye((4))*initial_process_noise_precision
 
@@ -85,7 +83,6 @@ class Tracking():
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
 
-                # if N == 0:
                 phi_bar_bar_inv = 0
                 eps_barbar_inv_eps_bar_sum = 0
                 for k in range(self.__N_radar):
@@ -112,9 +109,7 @@ class Tracking():
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
                         phi_bar_list[n] = phi_bar
                     elif n == N:
-                        # print("n == N")
                         phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv
-                        # print(G_T@Lambda_a@G)
                         eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1]
                         for k in range(self.__N_radar):
                             phi_bar_bar_inv += eps_barbar_inv_list[k, n] #+ G_inv_T@Lambda_a@G
