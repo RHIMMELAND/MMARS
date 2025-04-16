@@ -51,7 +51,6 @@ class Tracking():
         T_T = T.T
 
         G = np.diagflat([(T_frame**2)/2,(T_frame**2)/2,T_frame,T_frame])
-        print(G)
         G_inv = np.linalg.inv(G)
         G_inv_T = G_inv.T
         G_T = G.T
@@ -81,7 +80,7 @@ class Tracking():
                 D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = np.linalg.pinv(np.array([[D_KL_result.x[2],0,0,0], [0,D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
+                eps_barbar_inv_list[k, N] = np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]])
                 if N == 0:
                     phi_bar_list[N] += eps_bar_list[k, N]/self.__N_radar
                     phi_barbar_list[N] += np.linalg.pinv(eps_barbar_inv_list[k, N])/self.__N_radar
@@ -90,33 +89,33 @@ class Tracking():
                     if N == 0:
                         pass
                     elif n == 0:
-                        phi_bar_bar_inv = 0
-                        eps_barbar_inv_eps_bar_sum = 0
+                        phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
+                        eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] + T_T@G_inv_T@Lambda_a@G_inv@T
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
 
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
                         phi_bar_list[n] = phi_bar
                     elif n == N:
-                        phi_bar_bar_inv = 0
-                        eps_barbar_inv_eps_bar_sum = 0
+                        phi_bar_bar_inv = G_inv_T@Lambda_a@G
+                        eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] + G_inv_T@Lambda_a@G
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n] + (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
                     
                         phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
                         phi_bar_list[n] = phi_bar
                     else:
-                        phi_bar_bar_inv = 0
-                        eps_barbar_inv_eps_bar_sum = 0
+                        phi_bar_bar_inv = G_inv_T@Lambda_a@G + T_T@G_inv_T@Lambda_a@G_inv@T
+                        eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] + G_inv_T@Lambda_a@G + T_T@G_inv_T@Lambda_a@G_inv@T
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n] + (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
 
@@ -124,7 +123,7 @@ class Tracking():
                         phi_bar_list[n] = phi_bar
 
                 if N >= 1:
-                    alpha = N+1
+                    alpha = fifo_counter+1
                     beta = np.zeros((4, 4))
                     for n in range(N - fifo_counter, N+1):
                         beta += np.linalg.norm(G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1]))**2  + G_inv@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv_T
