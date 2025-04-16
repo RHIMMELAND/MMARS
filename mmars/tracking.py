@@ -66,7 +66,7 @@ class Tracking():
         phi_bar_list = np.zeros((N_frames, 4, 1)) # OBS!, +2->None
         phi_barbar_list = np.zeros((N_frames, 4, 4)) # OBS!, +2->None
 
-        initial_process_noise_precision = 1/8
+        initial_process_noise_precision = 1/8 
         Lambda_a = np.eye((4))*initial_process_noise_precision
 
         fifo_counter = 0
