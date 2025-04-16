@@ -1,0 +1,1 @@
+This file is for real radar data collected by an AWR1843. The files saved are .mat. 
