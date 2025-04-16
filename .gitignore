@@ -175,3 +175,12 @@ cython_debug/
 *.pkl
 *.pickle
 *.ipynb
+
+# Ignore all contents inside the folders
+realRadarFiles/
+realTargetFiles/
+
+# But not these specific files
+!realRadarFiles/realRadarFiles.txt
+!realTargetFiles/realTargetFiles.txt
+
