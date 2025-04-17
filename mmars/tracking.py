@@ -78,8 +78,8 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1)#.flatten()
-                data_fourier[:,:,:10] = 0
-                data_fourier[:,:,-20:] = 0
+                # data_fourier[:,:,:10] = 0
+                # data_fourier[:,:,-20:] = 0
                 data_fourier = data_fourier.flatten()
                 D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])

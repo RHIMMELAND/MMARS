@@ -26,7 +26,6 @@ class MRBLaT_Functions():
         self.__flatten_data_size = len(self.__tx_antennas) * len(self.__rx_antennas) * self.__N_samples
         
         self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
-        print(self.__lambda_z)
         self.__lambda_z = csr_matrix(self.__lambda_z)
 
         self.__freqs = np.linspace(0, self.__N_samples, self.__N_samples, endpoint=False)[np.newaxis]
