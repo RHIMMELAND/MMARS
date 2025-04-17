@@ -205,7 +205,6 @@ class FmcwRadar:
         self.__phase_diff_TX_RX = 2*np.pi*self.__distances/self.__wavelength
         self.__phase_diff_TX_RX -= self.__phase_diff_TX_RX[0,0]
 
-
         # Compute the Intermediate frequency (IF) frequency:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
 
