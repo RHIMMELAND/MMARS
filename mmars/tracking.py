@@ -101,8 +101,8 @@ class Tracking():
                         phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
                         eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] #+ T_T@G_inv_T@Lambda_a@G_inv@T
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n] #+ (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
 
@@ -112,8 +112,8 @@ class Tracking():
                         phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv
                         eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] #+ G_inv_T@Lambda_a@G
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n] #+ (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
                     
@@ -123,8 +123,8 @@ class Tracking():
                         phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv + T_T@G_inv_T@Lambda_a@G_inv@T
                         eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n] #+ G_inv_T@Lambda_a@G + T_T@G_inv_T@Lambda_a@G_inv@T
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n] #+ (G_inv_T@Lambda_a@G)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n]
                         phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
                         phi_barbar_list[n] = phi_bar_bar
 
