@@ -8,6 +8,7 @@ Created on Tue Mar 04 11:45:00 2025
 
 import numpy as np
 from scipy.constants import c
+from numba import njit
 
 class FmcwRadar:
     def __init__(self, 
@@ -195,16 +196,9 @@ class FmcwRadar:
         # Compute the radial distance to the target
         self.__radial_distance = np.sqrt(np.sum((self.__position - self.__target_position)**2, axis=1))
 
-        # Compute all distances between TX and RX antennas and the target
-        self.__distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
-        for tx_idx in range(len(self.__tx_antennas)):
-            for rx_idx in range(len(self.__rx_antennas)):
-                self.__distances[tx_idx,rx_idx] = np.sqrt(np.sum((self.__tx_antennas[tx_idx] - self.__target_position)**2)) + np.sqrt(np.sum((self.__rx_antennas[rx_idx] - self.__target_position)**2))
-
-        # Compute the phase difference between the antennas
-        self.__phase_diff_TX_RX = 2*np.pi*self.__distances/self.__wavelength
-        self.__phase_diff_TX_RX -= self.__phase_diff_TX_RX[0,0]
-
+        # Compute the radial velocity of the target
+        self.__phase_diff_TX_RX = calculate_round_trip_phases(self.__tx_antennas,self.__rx_antennas,self.__target_position,self.__wavelength)
+                
         # Compute the Intermediate frequency (IF) frequency:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
 
@@ -316,3 +310,21 @@ class FmcwRadar:
                  "standardDeviation": self.__standardDeviation,
                  "wavelength": self.__wavelength
                 }
+
+@njit
+def calculate_round_trip_phases(tx_antennas,
+                               rx_antennas,
+                               target_position,
+                               wavelength):
+    """
+    docstring
+    """
+    # Compute all distances between TX and RX antennas and the target
+    distances = np.zeros((len(tx_antennas), len(rx_antennas)))
+    for tx_idx in range(len(tx_antennas)):
+        for rx_idx in range(len(rx_antennas)):
+            distances[tx_idx,rx_idx] = np.sqrt(np.sum((tx_antennas[tx_idx] - target_position)**2)) + np.sqrt(np.sum((rx_antennas[rx_idx] - target_position)**2))
+    # Compute the phase difference between the antennas
+    phase_diff_TX_RX = 2*np.pi*distances/wavelength
+    phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
+    return phase_diff_TX_RX

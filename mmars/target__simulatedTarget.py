@@ -1,14 +1,14 @@
 import numpy as np
-from .tracking import Tracking
+from .target import Target
 
-class SimulatedTarget(Tracking):
+class SimulatedTarget(Target):
     def __init__(self, 
                  start_position, 
                  start_velocity, 
                  T_total = 20.0, 
                  T_frame = 40.0e-3
                  ):
-        
+        super().__init__()
         """ 
         Setup a target path 
         
@@ -52,10 +52,6 @@ class SimulatedTarget(Tracking):
         # Check if the frame time is a float
         if type(self.__T_frame) != float:
             raise ValueError("Frame time must be a float")
-
-
-        # Define the target trajectory variables
-        self.__x, self.__y = 0,0
     
     ##############################################################################################
 
@@ -94,15 +90,4 @@ class SimulatedTarget(Tracking):
         vx = np.gradient(x, self.__T_frame)
         vy = np.gradient(y, self.__T_frame)
 
-        self.__x, self.__y, self.__vx, self.__vy = x, y, vx, vy
-    
-    ##############################################################################################
-
-    def get_trajectory(self):
-        """
-        Get the target trajectory.
-
-        Returns:
-            x, y, vx, vy (numpy arrays)
-        """
-        return self.__x, self.__y, self.__vx, self.__vy
+        self._x, self._y, self._vx, self._vy = x, y, vx, vy

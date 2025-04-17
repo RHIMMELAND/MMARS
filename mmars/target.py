@@ -2,16 +2,21 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 class Target(ABC):
-    @abstractmethod
     def __init__(self):
-        pass
+        # Define the target trajectory variables
+        self._x, self._y,self._vx, self._vy = 0,0,0,0
+    
+    ##############################################################################################
+    def get_trajectory(self):
+        """
+        Get the target trajectory.
+
+        Returns:
+            x, y, vx, vy (numpy arrays)
+        """
+        return self._x, self._y, self._vx, self._vy
     
     ##############################################################################################
     @abstractmethod
     def generate_trajectory(self):
-        pass
-    
-    ##############################################################################################
-    @abstractmethod
-    def get_trajectory(self):
         pass

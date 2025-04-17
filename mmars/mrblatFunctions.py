@@ -26,6 +26,7 @@ class MRBLaT_Functions():
         self.__flatten_data_size = len(self.__tx_antennas) * len(self.__rx_antennas) * self.__N_samples
         
         self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
+        print(self.__lambda_z)
         self.__lambda_z = csr_matrix(self.__lambda_z)
 
         self.__freqs = np.linspace(0, self.__N_samples, self.__N_samples, endpoint=False)[np.newaxis]
@@ -140,14 +141,19 @@ class MRBLaT_Functions():
     def D_KL(self, params, Z_data, phi_bar_last_x, phi_bar_last_y, outputmode=(1,1,1,1), print_output=False):
 
         eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
+        """
+        FIX DET DER KREILER KODE NEDENFOR!!!!!!!!!!
 
+
+        gem nuværende s_n så den bliver S_N_lack i næste itteration.
+        """
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
-        S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(self.__N_samples)
 
         # Generate the S signal with the new parameters
         self.__radar_setup.generate_S_signal(eps_bar_x, eps_bar_y)
-        s_n = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(256)
+        s_n = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(self.__N_samples)
         
         # Compute the alpha_hat value
         alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))
