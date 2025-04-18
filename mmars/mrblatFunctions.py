@@ -149,10 +149,12 @@ class MRBLaT_Functions():
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
         S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(self.__N_samples)
+        # s_n_lack_norm_scale = np.max(S_N_lack)
 
         # Generate the S signal with the new parameters
         self.__radar_setup.generate_S_signal(eps_bar_x, eps_bar_y)
         s_n = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]/np.sqrt(self.__N_samples)
+        # s_n = s_n * (s_n_lack_norm_scale/np.max(s_n))
         
         # Compute the alpha_hat value
         alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))

@@ -40,7 +40,7 @@ class Tracking():
         docstring
         """
 
-        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.01, 0.01)
+        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.5, 0.5)
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],

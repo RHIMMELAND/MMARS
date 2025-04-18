@@ -183,6 +183,7 @@ class FmcwRadar:
         noise_power = np.mean(np.abs(white_noise)**2) # Compute the noise power
         self.__current_SNR = signal_power/noise_power # Compute the current SNR
         self.__IF_signal += white_noise # Add noise to the signal
+        self.__IF_signal
 
     def generate_S_signal(self, 
                                  target_x=0, 
@@ -212,6 +213,7 @@ class FmcwRadar:
                 self.__S_signal[tx_idx, rx_idx, :, :] = ((np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
                                               )*np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
         self.__S_signal *= np.sqrt(self.__received_power) # Scale the signal based on the received power
+        # self.__S_signal = self.__S_signal.conj()
 
     def get_current_SNR(self, decibels = True):
         if decibels:
