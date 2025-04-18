@@ -34,13 +34,13 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-19,19), (3,19), (0.00001, 100), (0.00001, 100)], fifo_length = None):   
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-.5,.5), (3,12), (0.00001, 100), (0.00001, 100)], fifo_length = None):   
 
         """
         docstring
         """
 
-        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.5, 0.5)
+        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.01, 0.01)
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -77,16 +77,13 @@ class Tracking():
         for N in tqdm(range(0, N_frames)):
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
-                data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1)#.flatten()
-                # data_fourier[:,:,:10] = 0
-                # data_fourier[:,:,-20:] = 0
+                # data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1)#.flatten()
+                data_fourier = frame_iq_radar_data ## MEGA OBS!!!!
                 data_fourier = data_fourier.flatten()
                 D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
-                eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
+                eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]]); print(eps_bar)
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
-
-                print(eps_bar)
 
                 phi_bar_bar_inv = 0
                 eps_barbar_inv_eps_bar_sum = 0
