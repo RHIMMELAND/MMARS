@@ -161,7 +161,7 @@ class MRBLaT_Functions():
 
         s_n_H = s_n.conj().T
 
-        term_1 = -np.real(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
+        term_1 = -np.abs(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
         term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ self.__lambda_z @ s_n)
         
         jac = self.jacobian_S(np.array([eps_bar_x, eps_bar_y]))

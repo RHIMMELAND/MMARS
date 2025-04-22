@@ -206,13 +206,14 @@ class FmcwRadar:
         # Compute the received power:
         self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__radial_distance**4 )
         
-        # Generate the IF signal
+        # Generate the S signal
+        x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
+        self.__S_signal[:, :, :, :] = (np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
-                x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
-                self.__S_signal[tx_idx, rx_idx, :, :] = ((np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
-                                              )*np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
-        self.__S_signal *= np.sqrt(self.__received_power) # Scale the signal based on the received power
+                self.__S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
+        self.__S_signal *= np.sqrt(self.__received_power)
+        # self.__S_signal = -self.__S_signal
         # self.__S_signal = self.__S_signal.conj()
 
     def get_current_SNR(self, decibels = True):
