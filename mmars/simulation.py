@@ -20,10 +20,23 @@ class Simulation():
         
         self.__radar_setup = radar_setup
         self.__target_setup = target_setup
+
+        if not isinstance(target_setup, Target):
+            #raise ValueError("target_setup must be an instance of the Target class")
+            self.__flag = True
+
+        if isinstance(target_setup, Target):
+            #raise ValueError("target_setup must be an instance of the Target class")
+            self.__flag = False
+        
         
     def run(self):
-        print(f"Running simulation with {self.__radar_setup} and {self.__target_setup}")
-        self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
+        if self.__flag == True:
+            self.__x,self.__y = self.__target_setup[:,1], self.__target_setup[:,2]
+            self.__vx,self.__vy = np.zeros((len(self.__x))), np.zeros((len(self.__x)))
+        else:
+            print(f"Running simulation with {self.__radar_setup} and {self.__target_setup}")
+            self.__x,self.__y,self.__vx,self.__vy = self.__target_setup.get_trajectory()
         idx = self.__radar_setup.get_IF_signal.shape
         self.__frames = np.zeros((len(self.__x), idx[0], idx[1], idx[2], idx[3]), dtype=complex)
         self.__SNRs = np.zeros(len(self.__x))

@@ -96,9 +96,6 @@ class FmcwRadar:
                                     [(3/2)*(self.__wavelength/2), 0]))
             self.__rx_antennas = self.__rx_antennas + self.__position
 
-        # print(self.__tx_antennas)
-        # print(self.__rx_antennas)
-
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
             raise ValueError("Position must be a 2x1 np.array")
@@ -209,15 +206,17 @@ class FmcwRadar:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
 
         # Compute the received power:
-        self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2*self.__radarCrossSection/( (4*np.pi)**3 * self.__radial_distance**4 )
+        self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2/( (4*np.pi)**3 * self.__radial_distance**4 )
+        # RCS burde slettes her!
+        # alpha representerer alt vi ikke kender!
         
         # Generate the IF signal
+        x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
+        self.__S_signal[:, :, :, :] = (np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
         for tx_idx in range(self.__tx_antennas.shape[0]):
             for rx_idx in range(self.__rx_antennas.shape[0]):
-                x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
-                self.__S_signal[tx_idx, rx_idx, :, :] = ((np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
-                                              )*np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
-        self.__S_signal *= np.sqrt(self.__received_power) # Scale the signal based on the received power
+                self.__S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
+        self.__S_signal *= np.sqrt(self.__received_power)
 
     def get_current_SNR(self, decibels = True):
         if decibels:

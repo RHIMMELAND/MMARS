@@ -1,6 +1,7 @@
 import numpy as np
 import mmars
 from scipy.optimize import minimize
+from scipy.optimize import differential_evolution
 
 from tqdm import tqdm
 
@@ -34,13 +35,13 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-100,100), (0.1,100), (0.00001, 100), (0.00001, 100)], fifo_length = None):   
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-20,20), (1,100), (0.00001, 100), (0.00001, 100)], fifo_length = None):   
 
         """
         docstring
         """
 
-        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.01, 0.01)
+        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1)
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -71,6 +72,7 @@ class Tracking():
 
         fifo_counter = 0
         mrblat_functions_list = []
+        
         for k in range(self.__N_radar):
             mrblat_functions_list.append(mmars.MRBLaT_Functions(self.__radar_parameters[k]))
 
@@ -143,7 +145,7 @@ class Tracking():
             x0 = (phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1])
             if fifo_counter < fifo_length:
                 fifo_counter += 1
-        return phi_bar_list, phi_barbar_list
+        return phi_bar_list, phi_barbar_list, np.array(alpha_hats), np.array(term_3)
     
     def run_kalman(self):
         """
