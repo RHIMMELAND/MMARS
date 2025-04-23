@@ -41,7 +41,7 @@ class Tracking():
         docstring
         """
 
-        x0 = (self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1)
+        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1]
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -80,8 +80,13 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
-                eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
+
+                x0_k = x0.copy()
+                x0_k[0] -= self.__radar_parameters[k]["position"][0,0]
+                x0_k[1] -= self.__radar_parameters[k]["position"][0,1]
+
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0_k, bounds = bound,  args=(data_fourier, x0_k[0], x0_k[1], (1,1,1,1), False), method='nelder-mead')
+                eps_bar = np.array([[D_KL_result.x[0] + self.__radar_parameters[k]["position"][0,0]], [D_KL_result.x[1]+self.__radar_parameters[k]["position"][0,1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
 
@@ -142,10 +147,10 @@ class Tracking():
                     Lambda_a = 1/(beta + 1) 
                     Lambda_a = alpha*np.eye(4)*Lambda_a 
 
-            x0 = (phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1])
+            x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
             if fifo_counter < fifo_length:
                 fifo_counter += 1
-        return phi_bar_list, phi_barbar_list, np.array(alpha_hats), np.array(term_3)
+        return phi_bar_list, phi_barbar_list
     
     def run_kalman(self):
         """
