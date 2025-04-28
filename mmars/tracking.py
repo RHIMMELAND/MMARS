@@ -152,11 +152,94 @@ class Tracking():
                 fifo_counter += 1
         return phi_bar_list, phi_barbar_list
     
-    def run_kalman(self):
+    def run_kalman(self, T_frame, N_frames = None, bound = [(-100,100), (1,100), (0.00001, 100), (0.00001, 100)], music_buffer_bins = 4):
         """
         docstring
         """
-        pass
+        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], self.__initial_kinematics[2,0], self.__initial_kinematics[3,0]]
+
+        T = np.array([[1, 0, T_frame, 0],
+                    [0, 1, 0, T_frame],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]])
+
+        G = np.diagflat([(T_frame**2)/2,(T_frame**2)/2,T_frame,T_frame])
+        sigma_a = (0.5/3)
+        Lambda_a = np.eye((4))*sigma_a**2
+        Q = G@G.T*sigma_a
+        # Q = (G@(Lambda_a)@G.T) # np.linalg.inv
+
+        H_k = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, 0]])
+        H = np.vstack([H_k for _ in range(self.__N_radar)])
+
+        # P0 = np.diag([1e-2, 1e-2, 1e1, 1e1])
+        # P0 = np.diag([1e-10, 1e-10, 1e-10, 1e-10])
+        P0 = np.diag([0, 0, 0, 0])
+        
+        measurement_noise = np.eye(self.__N_radar*2)*(0.17/3)**2#*1e-7#
+
+        if N_frames is None:
+            N_frames = self.__iq_radar_data[0].shape[0]
+
+        range_values = 0
+
+        phi_bar_list = []#np.zeros((N_frames, 4, 1))
+        phi_barbar_list = []#np.zeros((N_frames, 4, 4))
+
+        time_from_last_sample = 0
+        previous_data_fourier_arg_max_median = -1
+        data_fourier_arg_max_median = 0
+
+        for N in tqdm(range(0, N_frames)):
+            data_position = []
+            for k in range(self.__N_radar):
+                # print(k)
+                range_values = np.linspace(0, self.__radar_parameters[k]["max_range"], self.__iq_radar_data[k].shape[-1])
+                frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
+                data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1)
+                data_fourier_arg_max = np.argmax(data_fourier, axis=-1)
+                data_fourier_arg_max_median = np.median(data_fourier_arg_max)
+                radial_distance = range_values[int(data_fourier_arg_max_median)]
+
+                phasors = np.zeros((len(self.__radar_parameters[k]["tx_antennas"])*len(self.__radar_parameters[k]["rx_antennas"]), music_buffer_bins*2), dtype=complex)
+                for i in range(len(self.__radar_parameters[k]["tx_antennas"])):
+                    for j in range(len(self.__radar_parameters[k]["rx_antennas"])):
+                        phasors[i*(len(self.__radar_parameters[k]["tx_antennas"])+1)+j] = data_fourier[i,j,int(data_fourier_arg_max_median-music_buffer_bins):int(data_fourier_arg_max_median+music_buffer_bins)]
+                R = phasors @ phasors.conj().T*(1/self.__radar_parameters[k]["N_samples"])
+                music = doa_music(R, 1, scan_angles = np.linspace(-90, 90, 1001))
+                anglebins = np.linspace(-90, 90, 1001)
+                detected_angle = anglebins[np.argmax(music)]
+
+                tracking_data_x = -(radial_distance*np.cos(np.deg2rad(90-detected_angle))) + self.__radar_parameters[k]["position"][0,0]
+                tracking_data_y = (radial_distance*np.sin(np.deg2rad(90-detected_angle))) + self.__radar_parameters[k]["position"][0,1]
+                data_position.append([[tracking_data_x], [tracking_data_y]])
+            data_position = np.array(data_position).flatten()
+
+            if previous_data_fourier_arg_max_median == data_fourier_arg_max_median:
+                time_from_last_sample += T_frame
+                continue
+            else:
+                T = np.array([[1, 0, time_from_last_sample, 0],
+                            [0, 1, 0, time_from_last_sample],
+                            [0, 0, 1, 0],
+                            [0, 0, 0, 1]])
+                G = np.diagflat([(time_from_last_sample**2)/2,(time_from_last_sample**2)/2,time_from_last_sample,time_from_last_sample])
+                time_from_last_sample = 0
+                previous_data_fourier_arg_max_median = data_fourier_arg_max_median
+
+            # Prediction step            
+            x_prediction = T @ x0
+            P_prediction = T @ P0 @ T.T + Q
+
+            # Measurement step
+            x0, P0 = kalman_gain_and_state_estimate(data_position, x_prediction, H, P_prediction, measurement_noise)
+
+            phi_bar_list.append(x0[:,np.newaxis]) # KF.x[:,np.newaxis]# 
+            phi_barbar_list.append(P0) # KF.P # 
+
+        return np.array(phi_bar_list), np.array(phi_barbar_list)
+        
     def run_pda(self):
         """
         docstring
@@ -172,3 +255,36 @@ class Tracking():
         docstring
         """
         pass
+
+def doa_music(R, n_sig, d = 0.5, scan_angles = range(-90, 91)):
+    """ MUSIC algorithm implementation """
+    n_array = np.shape(R)[0]
+    array = np.linspace(0, (n_array - 1) * d, n_array)
+    scan_angles = np.array(scan_angles)
+
+    # 'eigh' guarantees the eigen values are sorted
+    _, e_vecs = np.linalg.eigh(R)
+    noise_subspace = e_vecs[:, :-n_sig]
+
+    array_grid, angle_grid = np.meshgrid(array, np.radians(scan_angles), indexing = "ij")
+    steering_vec = np.exp(-1.j * 2 * np.pi * array_grid * np.sin(angle_grid)) 
+    
+    # 2-norm (frobenius)
+    ps = 1 / np.square(np.linalg.norm(steering_vec.conj().T @ noise_subspace, axis = 1))
+
+    return 10 * np.log10(ps)
+
+def kalman_gain_and_state_estimate(data, X_p, H, P, R):
+    """
+    docstring
+    """
+    # Kalman gain
+    K = P @ H.T @ np.linalg.inv(H @ P @ H.T + R)
+
+    # State estimate
+    x_hat = X_p + K @ (data - H @ X_p)
+
+    # Covariance estimate
+    P = (np.eye(P.shape[0]) - K @ H) @ P @ (np.eye(P.shape[0]) - K @ H).T + K @ R @ K.T
+
+    return x_hat, P

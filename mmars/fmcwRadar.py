@@ -313,5 +313,6 @@ class FmcwRadar:
                  "radarCrossSection": self.__radarCrossSection,
                  "signalNoiseRatio": self.__signalNoiseRatio,
                  "standardDeviation": self.__standardDeviation,
-                 "wavelength": self.__wavelength
+                 "wavelength": self.__wavelength,
+                 "max_range": self.__R_max
                 }
