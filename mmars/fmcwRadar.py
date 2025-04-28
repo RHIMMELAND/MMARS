@@ -89,11 +89,15 @@ class FmcwRadar:
                                            [-8*(self.__wavelength/2), 0],
                                            [-4*(self.__wavelength/2), 0]))
             self.__tx_antennas = self.__tx_antennas + self.__position
+        else: 
+            self.__tx_antennas = self.__tx_antennas + self.__position
         if self.__rx_antennas is None:
             self.__rx_antennas = np.array(([-(3/2)*(self.__wavelength/2), 0],
                                     [-(1/2)*(self.__wavelength/2), 0],
                                     [(1/2)*(self.__wavelength/2), 0],
                                     [(3/2)*(self.__wavelength/2), 0]))
+            self.__rx_antennas = self.__rx_antennas + self.__position
+        else:
             self.__rx_antennas = self.__rx_antennas + self.__position
 
         # Check if the position is a 1x2 matrix
@@ -163,7 +167,6 @@ class FmcwRadar:
         # Noise signal:
         white_noise = ((np.random.normal(0, 1, self.__IF_signal.shape) 
                         + 1j*np.random.normal(0, 1, self.__IF_signal.shape)) * self.__standardDeviation) / np.sqrt(2)
-        
         
         # Generate the IF signal
         time = np.linspace(0,self.__N_samples/self.__f_sampling,self.__N_samples, endpoint=False)[np.newaxis]  # Time variable running from 0 to N_samples/F_sampling
