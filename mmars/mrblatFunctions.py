@@ -34,7 +34,7 @@ class MRBLaT_Functions():
         self.__x_r = self.__position[0,0]
         self.__y_r = self.__position[0,1]
 
-        self.__radar_setup = FmcwRadar(self.__position, self.__tx_antennas, self.__rx_antennas, self.__chirp_Rate, 1, radar_parameters["f_carrier"], self.__N_samples, self.__f_sampling, 1, self.__transmitPower, self.__gain, self.__radarCrossSection, [0.1,0.1]) 
+        self.__radar_setup = FmcwRadar(self.__position, self.__tx_antennas-self.__position, self.__rx_antennas-self.__position, self.__chirp_Rate, 1, radar_parameters["f_carrier"], self.__N_samples, self.__f_sampling, 1, self.__transmitPower, self.__gain, self.__radarCrossSection, [0.1,0.1]) 
 
     def alpha_hat(self, s_n, data_fourier):
         # Compute conjugate transpose once
