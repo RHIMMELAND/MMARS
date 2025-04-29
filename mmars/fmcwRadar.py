@@ -9,6 +9,8 @@ Created on Tue Mar 04 11:45:00 2025
 import numpy as np
 from scipy.constants import c
 
+from numba import njit
+
 class FmcwRadar:
     def __init__(self, 
                  position = np.array([[0,0]]),
@@ -195,15 +197,17 @@ class FmcwRadar:
         # Compute the radial distance to the target
         self.__radial_distance = np.sqrt(np.sum((self.__position - self.__target_position)**2, axis=1))
 
-        # Compute all distances between TX and RX antennas and the target
-        self.__distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
-        for tx_idx in range(len(self.__tx_antennas)):
-            for rx_idx in range(len(self.__rx_antennas)):
-                self.__distances[tx_idx,rx_idx] = np.sqrt(np.sum((self.__tx_antennas[tx_idx] - self.__target_position)**2)) + np.sqrt(np.sum((self.__rx_antennas[rx_idx] - self.__target_position)**2))
+        # # Compute all distances between TX and RX antennas and the target
+        # self.__distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
+        # for tx_idx in range(len(self.__tx_antennas)):
+        #     for rx_idx in range(len(self.__rx_antennas)):
+        #         self.__distances[tx_idx,rx_idx] = np.sqrt(np.sum((self.__tx_antennas[tx_idx] - self.__target_position)**2)) + np.sqrt(np.sum((self.__rx_antennas[rx_idx] - self.__target_position)**2))
 
-        # Compute the phase difference between the antennas
-        self.__phase_diff_TX_RX = 2*np.pi*self.__distances/self.__wavelength
-        self.__phase_diff_TX_RX -= self.__phase_diff_TX_RX[0,0]
+        # # Compute the phase difference between the antennas
+        # self.__phase_diff_TX_RX = 2*np.pi*self.__distances/self.__wavelength
+        # self.__phase_diff_TX_RX -= self.__phase_diff_TX_RX[0,0]
+
+        self.__phase_diff_TX_RX = compute_phase_matrix(self.__tx_antennas, self.__rx_antennas, self.__target_position, self.__wavelength)
 
         # Compute the Intermediate frequency (IF) frequency:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
@@ -213,15 +217,17 @@ class FmcwRadar:
         # RCS burde slettes her!
         # alpha representerer alt vi ikke kender!
         
-        # Generate the IF signal
-        x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
-        self.__S_signal[:, :, :, :] = (np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
-        for tx_idx in range(self.__tx_antennas.shape[0]):
-            for rx_idx in range(self.__rx_antennas.shape[0]):
-                self.__S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
+        self.__S_signal = compute_S_signal(self.__S_signal, self.__tx_antennas, self.__rx_antennas, self.__f_IF, self.__f_sampling, self.__N_samples, self.__received_power, self.__freqs, self.__phase_diff_TX_RX)
+
+        # # Generate the IF signal
+        # x = 2*np.pi*(self.__f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
+        # self.__S_signal[:, :, :, :] = (np.exp(1.j*(self.__N_samples-1)*x/2)*np.sin(self.__N_samples*x/2)/np.sin(x/2))
+        # for tx_idx in range(self.__tx_antennas.shape[0]):
+        #     for rx_idx in range(self.__rx_antennas.shape[0]):
+        #         self.__S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
 
         #self.__S_signal *= 10**(radiation_pattern_fnc(self.__target_position[0]-self.__position[0,0], self.__target_position[1]-self.__position[0,1])/20) # Apply the radiation pattern to the signal
-        self.__S_signal *= np.sqrt(self.__received_power)
+        # self.__S_signal *= np.sqrt(self.__received_power)
 
     def get_current_SNR(self, decibels = True):
         if decibels:
@@ -333,3 +339,25 @@ def radiation_pattern_fnc(x, y):
     p7 = 10.2333
 
     return p1 * theta **6 + p2 * theta **5 + p3 * theta **4 + p4 * theta **3 + p5 * theta **2 + p6 * theta + p7
+@njit
+def compute_phase_matrix(__tx_antennas, __rx_antennas, __target_position, __wavelength):
+    # Compute all distances between TX and RX antennas and the target
+    __distances = np.zeros((len(__tx_antennas), len(__rx_antennas)))
+    for tx_idx in range(len(__tx_antennas)):
+        for rx_idx in range(len(__rx_antennas)):
+            __distances[tx_idx,rx_idx] = np.sqrt(np.sum((__tx_antennas[tx_idx] - __target_position)**2)) + np.sqrt(np.sum((__rx_antennas[rx_idx] - __target_position)**2))
+
+    # Compute the phase difference between the antennas
+    __phase_diff_TX_RX = 2*np.pi*__distances/__wavelength
+    __phase_diff_TX_RX -= __phase_diff_TX_RX[0,0]
+    return __phase_diff_TX_RX
+
+@njit
+def compute_S_signal(__S_signal, __tx_antennas, __rx_antennas, __f_IF, __f_sampling, __N_samples, __received_power, __freqs, __phase_diff_TX_RX):
+    x = 2*np.pi*(__f_IF/__f_sampling-__freqs/__N_samples)
+    __S_signal[:, :, :, :] = (np.exp(1.j*(__N_samples-1)*x/2)*np.sin(__N_samples*x/2)/np.sin(x/2))
+    for tx_idx in range(__tx_antennas.shape[0]):
+        for rx_idx in range(__rx_antennas.shape[0]):
+            __S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*__phase_diff_TX_RX[tx_idx,rx_idx])
+    __S_signal *= np.sqrt(__received_power)
+    return __S_signal
