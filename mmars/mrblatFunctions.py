@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from scipy.sparse import csr_matrix
 from scipy.constants import c
@@ -48,13 +48,16 @@ class MRBLaT_Functions():
 
         partial_S_tilde_x = self.partial_steering_matrix_x(x, y) @ self.sinc(x, y) + self.steering_matrix(x, y) @ self.partial_sinc_x(x, y)
         S_jacobian_x = (partial_S_tilde_x * self.path_loss(x, y) + S_tilde * self.partial_path_loss_x(x, y)).flatten()[:, np.newaxis]
+        # print(S_tilde.shape)
+        # print(np.max(np.max(np.abs(S_tilde))))
+        # print(S_jacobian_x.T.conj()@S_jacobian_x)
 
         partial_S_tilde_y = self.partial_steering_matrix_y(x, y) @ self.sinc(x, y) + self.steering_matrix(x, y) @ self.partial_sinc_y(y, x)
 
         S_jacobian_y = (partial_S_tilde_y * self.path_loss(x, y) + S_tilde * self.partial_path_loss_y(y, x)).flatten()[:, np.newaxis]
 
         S_jacobian = np.hstack((S_jacobian_x, S_jacobian_y))
-        return S_jacobian
+        return S_jacobian#/self.__N_samples
 
     def path_loss(self, x, y):
         return path_loss_speed(x, y, self.__x_r, self.__y_r, self.__A)
@@ -75,14 +78,15 @@ class MRBLaT_Functions():
         # return partial_alpha
 
     def steering_matrix(self, x, y):
-        return steering_matrix_speed(x, y, self.__x_r, self.__y_r, self.__ds, self.__wavelength)
+        # print(steering_matrix_speed(x, y, self.__tx_antennas, self.__rx_antennas).shape)
+        return steering_matrix_speed(x, y, self.__tx_antennas, self.__rx_antennas) # , self.__x_r, self.__y_r, self.__ds, self.__wavelength
         # deltaR = np.sin(-np.arctan2(x - self.__x_r, y - self.__y_r)) * self.__ds
         # phi = deltaR / self.__wavelength
         # steering_mat = np.exp(1.j * 2 * np.pi * phi)
         # return steering_mat[:, np.newaxis]
     
     def partial_steering_matrix_x(self, x, y):
-        return partial_steering_matrix_x_speed(x, y, self.__x_r, self.__y_r, self.__ds, self.__wavelength)
+        return partial_steering_matrix_x_speed(x, y, self.__tx_antennas, self.__rx_antennas) # , self.__x_r, self.__y_r, self.__ds, self.__wavelength
         # exp = (x - self.__x_r)**2 + (y - self.__y_r)**2
         # partial_DeltaR_x = - (y - self.__y_r) * self.__ds / (np.sqrt(exp/(y - self.__y_r)**2) * exp)
 
@@ -96,7 +100,7 @@ class MRBLaT_Functions():
         # return partial_A_x[:, np.newaxis]
     
     def partial_steering_matrix_y(self, x, y):
-        return partial_steering_matrix_y_speed(x, y, self.__x_r, self.__y_r, self.__ds, self.__wavelength)
+        return partial_steering_matrix_y_speed(x, y, self.__tx_antennas, self.__rx_antennas) # , self.__x_r, self.__y_r, self.__ds, self.__wavelength
         # exp = (x - self.__x_r)**2 + (y - self.__y_r)**2
         # partial_DeltaR_y =  (x - self.__x_r) * self.__ds / (np.sqrt(exp/(y - self.__y_r)**2) * exp)
 
@@ -146,9 +150,20 @@ class MRBLaT_Functions():
         # partial_sinc = N_s * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) - np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) ** 2 * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) + np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * j * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * (N_s - 1) * np.exp(j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1))
         # return partial_sinc/self.__N_samples
     
-    def D_KL(self, params, Z_data, phi_bar_last_x, phi_bar_last_y, outputmode=(1,1,1,1), print_output=False):
-
+    def D_KL(self, params, Z_data, phi_last, inputmode=(1,1,1,1), outputmode=(1,1,1,1), print_output=False):
+        phi_bar_last_x, phi_bar_last_y, phi_bar_bar_last_x, phi_bar_bar_last_y  = phi_last
         eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
+
+        if inputmode[0] == 0:
+            eps_bar_x = phi_bar_last_x
+        if inputmode[1] == 0:
+            eps_bar_y = phi_bar_last_y
+        if inputmode[2] == 0:
+            eps_barbar_0 = phi_bar_bar_last_x
+        if inputmode[3] == 0:
+            eps_barbar_1 = phi_bar_bar_last_y
+
+        # print(inputmode, eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1)
 
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
@@ -169,7 +184,7 @@ class MRBLaT_Functions():
         jac = self.jacobian_S(np.array([eps_bar_x, eps_bar_y]))
         term_3_inner_prod = np.real(jac.conj().T @ self.__lambda_z @ jac)
         
-        term_3 = np.abs(alpha_hat_xy)**2 * np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        term_3 = np.abs(alpha_hat_xy)**2 * ((eps_barbar_0)*term_3_inner_prod[0,0] + (eps_barbar_1)*term_3_inner_prod[1,1]) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
         k = 2
         entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
         
@@ -187,49 +202,79 @@ def path_loss_speed(x, y, __x_r, __y_r, __A):
 @njit
 def partial_path_loss_x_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
-    partial_alpha = - 2 * __A * r**(-4) * (x - __x_r)
+    partial_alpha = - 2 * __A * r**(-3) * (x - __x_r)
     return partial_alpha
 
 @njit
 def partial_path_loss_y_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
-    partial_alpha = - 2 * __A * r**(-4) * (y - __y_r)
+    partial_alpha = - 2 * __A * r**(-3) * (y - __y_r)
     return partial_alpha
 
-@njit
-def steering_matrix_speed(x, y, __x_r, __y_r, __ds, __wavelength):
-    deltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
-    phi = deltaR / __wavelength
-    steering_mat = np.exp(1.j * 2 * np.pi * phi)
-    return steering_mat[:, np.newaxis]
+# @njit
+def steering_matrix_speed(x, y, tx_antennas, rx_antennas): # __x_r, __y_r, __ds, __wavelength
+    cg = []
+    for TX_idx in range(tx_antennas.shape[0]):
+        X_TX = tx_antennas[TX_idx,0]
+        Y_TX = tx_antennas[TX_idx,1]
+        for RX_idx in range(rx_antennas.shape[0]):
+            X_RX = rx_antennas[RX_idx,0]
+            Y_RX = rx_antennas[RX_idx,1]
+            cg.append(np.sqrt((x - X_TX) ** 2 + (y - Y_TX) ** 2) + np.sqrt((x - X_RX) ** 2 + (y - Y_RX) ** 2))
+    return np.array(cg)[:,np.newaxis]
 
-@njit
-def partial_steering_matrix_x_speed(x, y, __x_r, __y_r, __ds, __wavelength):
-    exp = (x - __x_r)**2 + (y - __y_r)**2
-    partial_DeltaR_x = - (y - __y_r) * __ds / (np.sqrt(exp/(y - __y_r)**2) * exp)
+    # deltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
+    # phi = deltaR / __wavelength
+    # steering_mat = np.exp(1.j * 2 * np.pi * phi)
+    # return steering_mat[:, np.newaxis]
 
-    partial_phi_DeltaR = 1 / __wavelength
+# @njit
+def partial_steering_matrix_x_speed(x, y, tx_antennas, rx_antennas): # __x_r, __y_r, __ds, __wavelength
+    cg = []
+    for TX_idx in range(tx_antennas.shape[0]):
+        X_TX = tx_antennas[TX_idx,0]
+        Y_TX = tx_antennas[TX_idx,1]
+        for RX_idx in range(rx_antennas.shape[0]):
+            X_RX = rx_antennas[RX_idx,0]
+            Y_RX = rx_antennas[RX_idx,1]
+            cg.append(((x - X_TX) ** 2 + (y - Y_TX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_TX) / 2 + ((x - X_RX) ** 2 + (y - Y_RX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_RX) / 2)
+    return np.array(cg)[:,np.newaxis]
+    
+    # exp = (x - __x_r)**2 + (y - __y_r)**2
+    # partial_DeltaR_x = - (y - __y_r) * __ds / (np.sqrt(exp/(y - __y_r)**2) * exp)
 
-    DeltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
-    phi = DeltaR / __wavelength
-    partial_A_phi = 1.j * 2 * np.pi * np.exp(1.j * 2 * np.pi * phi)
+    # partial_phi_DeltaR = 1 / __wavelength
 
-    partial_A_x = partial_A_phi * partial_phi_DeltaR * partial_DeltaR_x
-    return partial_A_x[:, np.newaxis]
+    # DeltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
+    # phi = DeltaR / __wavelength
+    # partial_A_phi = 1.j * 2 * np.pi * np.exp(1.j * 2 * np.pi * phi)
 
-@njit
-def partial_steering_matrix_y_speed(x, y, __x_r, __y_r, __ds, __wavelength):
-    exp = (x - __x_r)**2 + (y - __y_r)**2
-    partial_DeltaR_y =  (x - __x_r) * __ds / (np.sqrt(exp/(y - __y_r)**2) * exp)
+    # partial_A_x = partial_A_phi * partial_phi_DeltaR * partial_DeltaR_x
+    # return partial_A_x[:, np.newaxis]
 
-    partial_phi_DeltaR = 1 / __wavelength
+# @njit
+def partial_steering_matrix_y_speed(x, y, tx_antennas, rx_antennas): # __x_r, __y_r, __ds, __wavelength
+    cg = []
+    for TX_idx in range(tx_antennas.shape[0]):
+        X_TX = tx_antennas[TX_idx,0]
+        Y_TX = tx_antennas[TX_idx,1]
+        for RX_idx in range(rx_antennas.shape[0]):
+            X_RX = rx_antennas[RX_idx,0]
+            Y_RX = rx_antennas[RX_idx,1]
+            cg.append(((x - X_TX) ** 2 + (y - Y_TX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_TX) / 2 + ((x - X_RX) ** 2 + (y - Y_RX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_RX) / 2)
+    return np.array(cg)[:,np.newaxis]
 
-    DeltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
-    phi = DeltaR / __wavelength
-    partial_A_phi = 1.j * 2 * np.pi * np.exp(1.j * 2 * np.pi * phi)
+    # exp = (x - __x_r)**2 + (y - __y_r)**2
+    # partial_DeltaR_y =  (x - __x_r) * __ds / (np.sqrt(exp/(y - __y_r)**2) * exp)
 
-    partial_A_y = partial_A_phi * partial_phi_DeltaR * partial_DeltaR_y
-    return partial_A_y[:, np.newaxis]
+    # partial_phi_DeltaR = 1 / __wavelength
+
+    # DeltaR = np.sin(-np.arctan2(x - __x_r, y - __y_r)) * __ds
+    # phi = DeltaR / __wavelength
+    # partial_A_phi = 1.j * 2 * np.pi * np.exp(1.j * 2 * np.pi * phi)
+
+    # partial_A_y = partial_A_phi * partial_phi_DeltaR * partial_DeltaR_y
+    # return partial_A_y[:, np.newaxis]
 
 @njit
 def sinc_speed(x, y, __x_r, __y_r, __N_samples, __chirp_Rate, __f_sampling, __freqs):

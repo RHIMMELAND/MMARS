@@ -41,7 +41,7 @@ class Tracking():
         docstring
         """
 
-        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1]
+        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 2, 2]
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -80,11 +80,40 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,0,0), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-8, 'disp': False})
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
+                D_KL_result.x[2] = 2
+                D_KL_result.x[3] = 2
+
+                # heatmap_res = 100
+                # heatmap_x_axis = 10**(np.linspace(-100,20,heatmap_res)/20)
+                # heatmap_y_axis = 10**(np.linspace(-100,20,heatmap_res)/20)
+
+                # heatmap = np.zeros((heatmap_res, heatmap_res))
+                
+                # for i in tqdm(range(heatmap_res)):
+                #     for j in range(heatmap_res):
+                #         heatmap[i,j] =  mrblat_functions_list[k].D_KL([D_KL_result.x[0], D_KL_result.x[1], heatmap_x_axis[i], heatmap_y_axis[j]], data_fourier, [D_KL_result.x[0], D_KL_result.x[1], heatmap_x_axis[i], heatmap_y_axis[j]], (1,1,1,1), (1,1,1,1), False)
+                # heatmap = 20*np.log10(heatmap)
+
+                # fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+                # ax.pcolormesh(heatmap_x_axis, heatmap_y_axis, heatmap, shading='auto')
+                # ax.set_xscale('log')
+                # ax.set_yscale('log')
+
+                # argmin_heatmap = np.unravel_index(np.argmin(heatmap, axis=None), heatmap.shape)
+                # print(heatmap_x_axis[argmin_heatmap[0]], heatmap_y_axis[argmin_heatmap[1]])
+                # ax.scatter(heatmap_x_axis[argmin_heatmap[0]], heatmap_y_axis[argmin_heatmap[1]], color = 'blue', marker = 'x', label = 'D_KL')
+
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, D_KL_result.x, (0,0,1,1), (1,1,1,1), False), method='powell', options={'xatol': 1e-8, 'disp': False})
                 eps_bar_list[k, N] = eps_bar
                 eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
+
+                # print(D_KL_result.x[2], D_KL_result.x[3])
+
+                # ax.scatter(D_KL_result.x[2], D_KL_result.x[3], color = 'red', marker = 'x', label = 'D_KL')
+                # plt.show()
+                # ffffff
 
                 phi_bar_bar_inv = 0
                 eps_barbar_inv_eps_bar_sum = 0
@@ -100,7 +129,7 @@ class Tracking():
                 for n in range(N - fifo_counter, N+1):
                     if N == 0:
                         pass
-                    elif n == 0:
+                    elif n == N - fifo_counter:
                         phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
                         eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
