@@ -227,6 +227,8 @@ class FmcwRadar:
         #         self.__S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*self.__phase_diff_TX_RX[tx_idx,rx_idx])
         # self.__S_signal *= np.sqrt(self.__received_power)
 
+        # self.__S_signal *= 10**(radiation_pattern_fnc(self.__target_position[0]-self.__position[0,0], self.__target_position[1]-self.__position[0,1])/20) # Apply the radiation pattern to the signal
+
     def get_current_SNR(self, decibels = True):
         if decibels:
             return 10*np.log10(self.__current_SNR)
@@ -325,6 +327,18 @@ class FmcwRadar:
                  "max_range": self.__R_max
                 }
 
+def radiation_pattern_fnc(x, y):
+    theta = np.rad2deg(-np.arctan2(x, y))
+
+    p1 = -0.0000
+    p2 = -0.0000
+    p3 = 0.0000
+    p4 = 0.0000
+    p5 = -0.0030
+    p6 = -0.0433
+    p7 = 10.2333
+
+    return p1 * theta **6 + p2 * theta **5 + p3 * theta **4 + p4 * theta **3 + p5 * theta **2 + p6 * theta + p7
 @njit
 def compute_phase_matrix(__tx_antennas, __rx_antennas, __target_position, __wavelength):
     # Compute all distances between TX and RX antennas and the target
