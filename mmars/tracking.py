@@ -100,7 +100,7 @@ class Tracking():
                 for n in range(N - fifo_counter, N+1):
                     if N == 0:
                         pass
-                    elif n == 0:
+                    elif n == N - fifo_counter:
                         phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
                         eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
@@ -144,7 +144,7 @@ class Tracking():
                     Lambda_a = alpha*np.eye(4)*Lambda_a 
 
             x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
-            if fifo_counter < fifo_length:
+            if fifo_counter < fifo_length-1:
                 fifo_counter += 1
         return phi_bar_list, phi_barbar_list
     
