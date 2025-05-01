@@ -182,19 +182,19 @@ class MRBLaT_Functions():
 def path_loss_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     alpha = __A/r**2
-    return alpha
+    return 1 #alpha
 
 @njit
 def partial_path_loss_x_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     partial_alpha = - 2 * __A * r**(-4) * (x - __x_r)
-    return partial_alpha
+    return 0 #partial_alpha
 
 @njit
 def partial_path_loss_y_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     partial_alpha = - 2 * __A * r**(-4) * (y - __y_r)
-    return partial_alpha
+    return 0 #partial_alpha
 
 @njit
 def steering_matrix_speed(x, y, __x_r, __y_r, __ds, __wavelength):
