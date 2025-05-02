@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from scipy.sparse import csr_matrix
 from scipy.constants import c
@@ -39,7 +39,7 @@ class MRBLaT_Functions():
     def alpha_hat(self, s_n, data_fourier):
         # Compute conjugate transpose once
         s_n_H = s_n.conj().T  # Conjugate transpose
-        return (s_n_H @ self.__lambda_z @ data_fourier) / (s_n_H @ self.__lambda_z @ s_n)
+        return (s_n_H @ self.__lambda_z @ data_fourier) @ np.linalg.inv(s_n_H @ self.__lambda_z @ s_n) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     def jacobian_S(self, epsilon):
         x, y = epsilon
@@ -57,9 +57,6 @@ class MRBLaT_Functions():
     
     def jacobian_S_ez(self, epsilon):
         x, y = epsilon
-        R = np.sqrt((x - self.__x_r)**2 + (y - self.__y_r)**2)
-        dR__dx = (x - self.__x_r)/R
-        dR__dy = (y - self.__y_r)/R
 
         R_RT = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
         dR_RT__dx = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
@@ -69,10 +66,17 @@ class MRBLaT_Functions():
                 R_RT[tx_idx,rx_idx] = np.sqrt((x - self.__tx_antennas[tx_idx,0])**2 + (y - self.__tx_antennas[tx_idx,1])**2) + np.sqrt((x - self.__rx_antennas[rx_idx,0])**2 + (y - self.__rx_antennas[rx_idx,1])**2)
                 dR_RT__dx[tx_idx,rx_idx] = (x - self.__tx_antennas[tx_idx,0])**2/np.sqrt((x - self.__tx_antennas[tx_idx,0])**2 + (y - self.__tx_antennas[tx_idx,1])**2) + (x - self.__rx_antennas[rx_idx,0])**2/np.sqrt((x - self.__rx_antennas[rx_idx,0])**2 + (y - self.__rx_antennas[rx_idx,1])**2)
                 dR_RT__dy[tx_idx,rx_idx] = (y - self.__tx_antennas[tx_idx,1])**2/np.sqrt((x - self.__tx_antennas[tx_idx,0])**2 + (y - self.__tx_antennas[tx_idx,1])**2) + (y - self.__rx_antennas[rx_idx,1])**2/np.sqrt((x - self.__rx_antennas[rx_idx,0])**2 + (y - self.__rx_antennas[rx_idx,1])**2)
-        
+        R_RT = R_RT.flatten()[:, np.newaxis]
+        dR_RT__dx = dR_RT__dx.flatten()[:, np.newaxis]
+        dR_RT__dy = dR_RT__dy.flatten()[:, np.newaxis]
+
         phi = (2*np.pi/self.__wavelength)*R_RT
         dphi__dx = (2*np.pi/self.__wavelength)*dR_RT__dx
         dphi__dy = (2*np.pi/self.__wavelength)*dR_RT__dy
+
+        R = np.sqrt((x - self.__x_r)**2 + (y - self.__y_r)**2)
+        dR__dx = (x - self.__x_r)/R
+        dR__dy = (y - self.__y_r)/R
 
         f_if = (2 * self.__chirp_Rate / c) * R
         df_if__dx = (2 * self.__chirp_Rate / c) * dR__dx
@@ -96,9 +100,24 @@ class MRBLaT_Functions():
             - np.sin(self.__N_samples * T_E / 2)*(1/2)*np.cos(T_E / 2)*dT_E__dy
             ) / ((np.sin(T_E / 2))**2)
         
+        # print(phi.shape, sin_expr.shape)
         
+        steering_matrix = np.exp(1.j * phi)
+        dsteering_matrix__dx = 1.j * steering_matrix * dphi__dx
+        dsteering_matrix__dy = 1.j * steering_matrix * dphi__dy
 
-        
+        kernel = (K * sin_expr) #/ self.__N_samples
+        dkernel__dx = (dK__dx * sin_expr + K * dsin_expr__dx) #/ self.__N_samples
+        dkernel__dy = (dK__dy * sin_expr + K * dsin_expr__dy) #/ self.__N_samples
+
+        jac_x = dkernel__dx * steering_matrix + kernel * dsteering_matrix__dx
+        jac_y = dkernel__dy * steering_matrix + kernel * dsteering_matrix__dy
+
+        # print(jac_x.shape, jac_y.shape)
+
+        jac = np.hstack((jac_x.flatten()[:, np.newaxis], jac_y.flatten()[:, np.newaxis]))
+
+        return jac
 
     def path_loss(self, x, y):
         return path_loss_speed(x, y, self.__x_r, self.__y_r, self.__A)
@@ -148,7 +167,7 @@ class MRBLaT_Functions():
         term_1 = -np.abs(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
         term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ self.__lambda_z @ s_n)
         
-        jac = self.jacobian_S(np.array([eps_bar_x, eps_bar_y]))
+        jac = self.jacobian_S_ez(np.array([eps_bar_x, eps_bar_y]))
         term_3_inner_prod = np.real(jac.conj().T @ self.__lambda_z @ jac)
         
         term_3 = np.abs(alpha_hat_xy)**2 * np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
@@ -231,4 +250,3 @@ def partial_sinc_x_speed(x, y, X_R, Y_R, N_s, S, F_s, f):
 def partial_sinc_y_speed(x, y, X_R, Y_R, N_s, S, F_s, f):
     partial_sinc = N_s * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * np.exp(1.j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) - np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) ** 2 * np.exp(1.j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1)) * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * np.cos(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) + np.sin(N_s * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) / np.sin(np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s)) * 1.j * np.pi * S * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_s * (2 * y - 2 * Y_R) * (N_s - 1) * np.exp(1.j * np.pi * (2 * S * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_s - f / N_s) * (N_s - 1))
     return partial_sinc/N_s
-

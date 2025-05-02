@@ -213,7 +213,7 @@ class FmcwRadar:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
 
         # Compute the received power:
-        self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2/( (4*np.pi)**3 * self.__radial_distance**4 )
+        self.__received_power = 1#self.__transmitPower*self.__gain*self.__wavelength**2/( (4*np.pi)**3 * self.__radial_distance**4 )
         # RCS burde slettes her!
         # alpha representerer alt vi ikke kender!
         
