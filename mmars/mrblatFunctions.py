@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from scipy.sparse import csr_matrix
 from scipy.constants import c
@@ -24,6 +24,7 @@ class MRBLaT_Functions():
         self.__chirp_Rate = radar_parameters["chirp_Rate"]
         self.__f_sampling = radar_parameters["f_sampling"]
         self.__flatten_data_size = len(self.__tx_antennas) * len(self.__rx_antennas) * self.__N_samples
+        self.__temp = 0
         
         self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
         self.__lambda_z = csr_matrix(self.__lambda_z)
@@ -39,7 +40,7 @@ class MRBLaT_Functions():
     def alpha_hat(self, s_n, data_fourier):
         # Compute conjugate transpose once
         s_n_H = s_n.conj().T  # Conjugate transpose
-        return (s_n_H @ self.__lambda_z @ data_fourier) / (s_n_H @ self.__lambda_z @ s_n)
+        return (s_n_H @ data_fourier) / (s_n_H @ s_n) # Fjernet Lambda_z
     
     def jacobian_S(self, epsilon):
             
@@ -50,7 +51,6 @@ class MRBLaT_Functions():
         S_jacobian_x = (partial_S_tilde_x * self.path_loss(x, y) + S_tilde * self.partial_path_loss_x(x, y)).flatten()[:, np.newaxis]
 
         partial_S_tilde_y = self.partial_steering_matrix_y(x, y) @ self.sinc(x, y) + self.steering_matrix(x, y) @ self.partial_sinc_y(y, x)
-
         S_jacobian_y = (partial_S_tilde_y * self.path_loss(x, y) + S_tilde * self.partial_path_loss_y(y, x)).flatten()[:, np.newaxis]
 
         S_jacobian = np.hstack((S_jacobian_x, S_jacobian_y))
@@ -177,24 +177,34 @@ class MRBLaT_Functions():
             print(term_1, term_2, term_3, entropy)
 
         return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
+    
+    def get_alpha_hat(self, Z_data, phi_bar_last_x, phi_bar_last_y):
+        self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
+        S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]
+
+        return np.abs(self.alpha_hat(S_N_lack, Z_data))
+    
+    def get_S_signal(self, phi_bar_last_x, phi_bar_last_y):
+        self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
+        return self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]
 
 @njit
 def path_loss_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     alpha = __A/r**2
-    return alpha
+    return __A
 
 @njit
 def partial_path_loss_x_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     partial_alpha = - 2 * __A * r**(-4) * (x - __x_r)
-    return partial_alpha
+    return 0
 
 @njit
 def partial_path_loss_y_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     partial_alpha = - 2 * __A * r**(-4) * (y - __y_r)
-    return partial_alpha
+    return 0
 
 @njit
 def steering_matrix_speed(x, y, __x_r, __y_r, __ds, __wavelength):

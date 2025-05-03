@@ -213,7 +213,7 @@ class FmcwRadar:
         self.__f_IF = 2*self.__radial_distance*self.__chirp_Rate/self.__c
 
         # Compute the received power:
-        self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2/( (4*np.pi)**3 * self.__radial_distance**4 )
+        self.__received_power = self.__transmitPower*self.__gain*self.__wavelength**2/( (4*np.pi)**3) # self.__radial_distance**4
         # RCS burde slettes her!
         # alpha representerer alt vi ikke kender!
         
@@ -360,4 +360,4 @@ def compute_S_signal(__S_signal, __tx_antennas, __rx_antennas, __f_IF, __f_sampl
         for rx_idx in range(__rx_antennas.shape[0]):
             __S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*__phase_diff_TX_RX[tx_idx,rx_idx])
     __S_signal *= np.sqrt(__received_power)
-    return __S_signal
+    return __S_signal / __N_samples
