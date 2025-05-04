@@ -41,7 +41,7 @@ class Tracking():
         docstring
         """
 
-        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], 0.1, 0.1]
+        x0 = [self.__initial_kinematics[0,0], self.__initial_kinematics[1,0], .2, .2]
 
         T = np.array([[1, 0, T_frame, 0],
                     [0, 1, 0, T_frame],
@@ -85,77 +85,132 @@ class Tracking():
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
 
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,1,1), (1,1,1,1), False), method='nelder-mead')
                 D_KL_phi_bar[N] = D_KL_result.x[:2,np.newaxis]
-                D_KL_phi_barbar[N] = np.array([[D_KL_result.x[2], 0], [0, D_KL_result.x[3]]])
                 alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0[0], x0[1])[0]
                 alpha_hat_list.append(alpha_hat)
 
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, D_KL_result.x, (0,0,1,1), (1,1,1,1), False), method='powell')
+                D_KL_phi_barbar[N] = np.array([[D_KL_result.x[2], 0], [0, D_KL_result.x[3]]])
+                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
 
-                phi_bar_bar_inv = 0
-                eps_barbar_inv_eps_bar_sum = 0
-                for k in range(self.__N_radar):
-                    phi_bar_bar_inv += eps_barbar_inv_list[k, N] 
-                    eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, N] @ eps_bar_list[k, N]
-                phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
-                phi_barbar_list[N] = phi_bar_bar
+                x0 = [eps_bar[0,0], eps_bar[1,0], D_KL_result.x[2], D_KL_result.x[3]]
 
-                phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                phi_bar_list[N] = phi_bar
-            for _ in range(N_iter):
-                for n in range(N - fifo_counter, N+1):
-                    if N == 0:
-                        pass
-                    elif n == N - fifo_counter:
-                        phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
-                        eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
-                        for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
-                        phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
-                        phi_barbar_list[n] = phi_bar_bar
+                if N in [0,1]:
+                    ### HEAT MAP ###
 
-                        phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        phi_bar_list[n] = phi_bar
-                    elif n == N:
-                        phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv
-                        eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1]
-                        for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
-                        phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
-                        phi_barbar_list[n] = phi_bar_bar
+                    heatmap_res = 101
+
+                    heatmap_pos = np.zeros((heatmap_res, heatmap_res))
+                    heatmap_var = np.zeros((heatmap_res, heatmap_res))
+
+                    heatmap_pos_x = np.linspace(-15,15, heatmap_res)
+                    heatmap_pos_y = np.linspace(3,18, heatmap_res)
+                    heatmap_var_x = 10**(np.linspace(-200, 20, heatmap_res)/20)
+                    heatmap_var_y = 10**(np.linspace(-200, 20, heatmap_res)/20)
+
+                    for i in range(heatmap_res):
+                        for j in range(heatmap_res):
+                            heatmap_pos[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[j], heatmap_pos_y[i], x0[2], x0[3]], data_fourier, x0, (1,1,1,1), (1,1,1,1), False)
+                    argmin_heatmap_pos = np.unravel_index(np.argmin(heatmap_pos, axis=None), heatmap_pos.shape)
+
+                    for i in range(heatmap_res):
+                        for j in range(heatmap_res):
+                            heatmap_var[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[argmin_heatmap_pos[0]], heatmap_pos_y[argmin_heatmap_pos[1]], heatmap_var_x[j], heatmap_var_y[i]], data_fourier, x0, (1,1,1,1), (1,1,1,1), False)
+                    argmin_heatmap_var = np.unravel_index(np.argmin(heatmap_var, axis=None), heatmap_var.shape)
+
+                    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
                     
-                        phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        phi_bar_list[n] = phi_bar
-                    else:
-                        phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv + T_T@G_inv_T@Lambda_a@G_inv@T
-                        eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
-                        for k in range(self.__N_radar):
-                            phi_bar_bar_inv += eps_barbar_inv_list[k, n]
-                            eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n]
-                        phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
-                        phi_barbar_list[n] = phi_bar_bar
+                    p0 = ax[0].pcolormesh(heatmap_pos_x, heatmap_pos_y, np.array(heatmap_pos), shading='auto')
+                    fig.colorbar(p0, ax=ax[0])
+                    ax[0].scatter(heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]], color='red', marker='x', s=100, label='ARGMIN')
+                    ax[0].scatter(x0[0], x0[1], color='blue', marker='x', s=100, label='INITIAL')
+                    ax[0].set_title(f'Position Heatmap (frame {N})')
+                    ax[0].set_xlabel('X Position (m)')
+                    ax[0].set_ylabel('Y Position (m)')
+                    ax[0].grid()
+                    ax[0].legend()
+                    
+                    p1 = ax[1].pcolormesh(heatmap_var_x, heatmap_var_y, np.array(heatmap_var), shading='auto')
+                    fig.colorbar(p1, ax=ax[1])
+                    ax[1].scatter(heatmap_var_x[argmin_heatmap_var[1]], heatmap_var_y[argmin_heatmap_var[0]], color='red', marker='x', s=100, label='ARGMIN')
+                    ax[1].scatter(x0[2], x0[3], color='blue', marker='x', s=100, label='INITIAL')
+                    ax[1].set_title(f'Variance Heatmap (frame {N})')
+                    ax[1].set_xlabel('X Variance (m)')
+                    ax[1].set_ylabel('Y Variance (m)')
+                    ax[1].set_xscale('log')
+                    ax[1].set_yscale('log')
+                    ax[1].grid()
+                    ax[1].legend()
 
-                        phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                        phi_bar_list[n] = phi_bar
+                    plt.tight_layout()
+                    plt.show()
 
-                if N >= 1:
-                    alpha = fifo_counter+1
-                    beta = np.zeros((4, 1))
-                    for n in range(1 + N - fifo_counter, N+1):
-                        outer_product_dummy = G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1])
-                        beta += np.abs(outer_product_dummy)**2 + np.linalg.diagonal(G_inv_T@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv)[:,np.newaxis]
-                    Lambda_a = 1/(beta + 1) 
-                    Lambda_a = alpha*np.eye(4)*Lambda_a 
+                    ### HEATY MAP END ###
 
-            x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
-            alpha_hat_S_list.append(alpha_hat*mrblat_functions_list[k].get_S_signal(x0[0], x0[1]))
-            if fifo_counter < fifo_length-1:
-                fifo_counter += 1
+            # phi_bar_bar_inv = 0
+            # eps_barbar_inv_eps_bar_sum = 0
+            # for k in range(self.__N_radar):
+            #     phi_bar_bar_inv += eps_barbar_inv_list[k, N] 
+            #     eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, N] @ eps_bar_list[k, N]
+            # phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
+            # phi_barbar_list[N] = phi_bar_bar
+            # phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
+            # phi_bar_list[N] = phi_bar
+            
+            # for _ in range(N_iter):
+            #     for n in range(N - fifo_counter, N+1):
+            #         if N == 0:
+            #             pass
+            #         elif n == N - fifo_counter:
+            #             phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
+            #             eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+            #             for k in range(self.__N_radar):
+            #                 phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+            #                 eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
+            #             phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
+            #             phi_barbar_list[n] = phi_bar_bar
+
+            #             phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
+            #             phi_bar_list[n] = phi_bar
+            #         elif n == N:
+            #             phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv
+            #             eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1]
+            #             for k in range(self.__N_radar):
+            #                 phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+            #                 eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @ eps_bar_list[k, n]
+            #             phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
+            #             phi_barbar_list[n] = phi_bar_bar
+                    
+            #             phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
+            #             phi_bar_list[n] = phi_bar
+            #         else:
+            #             phi_bar_bar_inv = G_inv_T@Lambda_a@G_inv + T_T@G_inv_T@Lambda_a@G_inv@T
+            #             eps_barbar_inv_eps_bar_sum = (G_inv_T@Lambda_a@G_inv)@T@phi_bar_list[n-1] + (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
+            #             for k in range(self.__N_radar):
+            #                 phi_bar_bar_inv += eps_barbar_inv_list[k, n]
+            #                 eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, n] @  eps_bar_list[k, n]
+            #             phi_bar_bar = np.linalg.inv(phi_bar_bar_inv)
+            #             phi_barbar_list[n] = phi_bar_bar
+
+            #             phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
+            #             phi_bar_list[n] = phi_bar
+
+            #     if N >= 1:
+            #         alpha = fifo_counter+1
+            #         beta = np.zeros((4, 1))
+            #         for n in range(1 + N - fifo_counter, N+1):
+            #             outer_product_dummy = G_inv@(phi_bar_list[n]-T@phi_bar_list[n-1])
+            #             beta += np.abs(outer_product_dummy)**2 + np.linalg.diagonal(G_inv_T@(phi_barbar_list[n]+T@phi_barbar_list[n-1]@T_T)@G_inv)[:,np.newaxis]
+            #         Lambda_a = 1/(beta + 1) 
+            #         Lambda_a = alpha*np.eye(4)*Lambda_a 
+
+            # x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
+            # alpha_hat_S_list.append(alpha_hat*mrblat_functions_list[k].get_S_signal(x0[0], x0[1]))
+            # if fifo_counter < fifo_length-1:
+            #     fifo_counter += 1
         return phi_bar_list, phi_barbar_list, alpha_hat_list, alpha_hat_S_list, D_KL_phi_bar, D_KL_phi_barbar
     
     def run_kalman(self, T_frame, N_frames = None, bound = [(-100,100), (1,100), (0.00001, 100), (0.00001, 100)], music_buffer_bins = 4):
