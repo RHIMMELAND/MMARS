@@ -45,16 +45,68 @@ class MRBLaT_Functions():
     def jacobian_S(self, epsilon):
             
         x, y = epsilon
-        S_tilde = self.steering_matrix(x, y) @ self.sinc(x, y)
+        S_tilde = self.steering_matrix(x, y) * self.sinc(x, y)
 
-        partial_S_tilde_x = self.partial_steering_matrix_x(x, y) @ self.sinc(x, y) + self.steering_matrix(x, y) @ self.partial_sinc_x(x, y)
+        partial_S_tilde_x = self.partial_steering_matrix_x(x, y) * self.sinc(x, y) + self.steering_matrix(x, y) * self.partial_sinc_x(x, y)
         S_jacobian_x = (partial_S_tilde_x * self.path_loss(x, y) + S_tilde * self.partial_path_loss_x(x, y)).flatten()[:, np.newaxis]
 
-        partial_S_tilde_y = self.partial_steering_matrix_y(x, y) @ self.sinc(x, y) + self.steering_matrix(x, y) @ self.partial_sinc_y(y, x)
+        partial_S_tilde_y = self.partial_steering_matrix_y(x, y) * self.sinc(x, y) + self.steering_matrix(x, y) * self.partial_sinc_y(y, x)
         S_jacobian_y = (partial_S_tilde_y * self.path_loss(x, y) + S_tilde * self.partial_path_loss_y(y, x)).flatten()[:, np.newaxis]
 
         S_jacobian = np.hstack((S_jacobian_x, S_jacobian_y))
-        return S_jacobian / self.__N_samples
+        return S_jacobian
+    
+    def jacobian_S_A(self, epsilon):
+
+        x, y = epsilon
+        c  = 3e8
+        theta = np.atan(x/y)
+        r = np.sqrt(x**2+y**2)
+        if r < 1:
+            r = 1
+        
+        Array_pos = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas),2))
+        for TX_idx in range(len(self.__tx_antennas)):
+            for RX_idx in range(len(self.__rx_antennas)):
+                Array_pos[TX_idx*len(self.__rx_antennas)+RX_idx] = self.__tx_antennas[TX_idx] + self.__rx_antennas[RX_idx]
+        Delta = np.linalg.norm(Array_pos - Array_pos[0], axis=1)[:, np.newaxis]
+
+        f_IF =2*self.__chirp_Rate* r/c
+        A = np.exp(1.j*2*np.pi*self.__wavelength**(-1)*np.sin(theta)*Delta)
+        x_f = 2*np.pi*(f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
+
+        drdx = x/r
+        drdy = y/r
+
+        dsinthetadx = y/np.sqrt(x**2/y**2+1)/r**2
+        dsinthetady = -x/np.sqrt(x**2/y**2+1)/r**2
+
+        dAdx = 1.j*2*np.pi*self.__wavelength**(-1)*Delta*A*dsinthetadx
+        dAdy = 1.j*2*np.pi*self.__wavelength**(-1)*Delta*A*dsinthetady
+
+        df_IFdx = 2*self.__chirp_Rate/c*drdx
+        df_IFdy = 2*self.__chirp_Rate/c*drdy
+
+        dx_fdx = 2*np.pi*df_IFdx/self.__f_sampling
+        dx_fdy = 2*np.pi*df_IFdy/self.__f_sampling
+        expfx = np.exp(1.j*(self.__N_samples-1)*x_f/2)
+        kernal = np.sin(self.__N_samples*x_f/2)/np.sin(x_f/2)
+
+        dexpdx = np.exp(1.j*(self.__N_samples-1)*x_f/2)*1.j*(self.__N_samples-1)/2*dx_fdx
+        dexpdy = np.exp(1.j*(self.__N_samples-1)*x_f/2)*1.j*(self.__N_samples-1)/2*dx_fdy
+
+        dsindx = (-(self.__N_samples*np.sin(x_f/2)*np.cos((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1) - (np.sin(x_f) * np.sin(x_f/2) * np.sin((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1)**2)*dx_fdx
+        dsindy = (-(self.__N_samples*np.sin(x_f/2)*np.cos((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1) - (np.sin(x_f) * np.sin(x_f/2) * np.sin((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1)**2)*dx_fdy
+
+        Jx = dAdx*(expfx*kernal) + A*(dexpdx*kernal + expfx*dsindx)
+        Jy = dAdy*expfx*kernal + A*dexpdy*kernal + A*expfx*dsindy
+
+
+        Jx = Jx.flatten()[:, np.newaxis]
+        Jy = Jy.flatten()[:, np.newaxis]
+
+        J = np.hstack((Jx,Jy))/self.__N_samples
+        return J
 
     def path_loss(self, x, y):
         return path_loss_speed(x, y, self.__x_r, self.__y_r, self.__A)
@@ -147,17 +199,17 @@ class MRBLaT_Functions():
         # return partial_sinc/self.__N_samples
     
     def D_KL(self, params, Z_data, phi_last, inputmode=(1,1,1,1), outputmode=(1,1,1,1), print_output=False):
-        phi_bar_last_x, phi_bar_last_y, phi_bar_bar_last_x, phi_bar_bar_last_y  = phi_last
+        phi_bar_last_x, phi_bar_last_y, phi_bar_x_current, phi_bar_y_current  = phi_last
         eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
 
         if inputmode[0] == 0:
-            eps_bar_x = phi_bar_last_x
+            eps_bar_x = phi_bar_x_current
         if inputmode[1] == 0:
-            eps_bar_y = phi_bar_last_y
-        if inputmode[2] == 0:
-            eps_barbar_0 = phi_bar_bar_last_x
-        if inputmode[3] == 0:
-            eps_barbar_1 = phi_bar_bar_last_y
+            eps_bar_y = phi_bar_y_current
+        # if inputmode[2] == 0:
+        #     eps_barbar_0 = eps_barbar_0
+        # if inputmode[3] == 0:
+        #     eps_barbar_1 = eps_barbar_1
 
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
@@ -176,20 +228,20 @@ class MRBLaT_Functions():
 
         s_n_H = s_n.conj().T
 
-        term_1 = -np.abs(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
-        term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ self.__lambda_z @ s_n)
+        term_1 = - 2* np.abs(alpha_hat_xy * (s_n_H @ Z_data))
+        term_2 = np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n)
         
-        jac = self.jacobian_S(np.array([eps_bar_x, eps_bar_y]))
-        term_3_inner_prod = np.real(jac.conj().T @ self.__lambda_z @ jac)
+        jac = self.jacobian_S_A(np.array([eps_bar_x, eps_bar_y]))
+        term_3_inner_prod = jac.conj().T @ jac
         
-        term_3 = np.abs(alpha_hat_xy)**2 * ((eps_barbar_0)*term_3_inner_prod[0,0] + (eps_barbar_1)*term_3_inner_prod[1,1]) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        term_3 = np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0**2 + term_3_inner_prod[1,1]* eps_barbar_1**2) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
         k = 2
-        entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
+        entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0**2 * eps_barbar_1**2)
         
         if print_output:
             print(term_1, term_2, term_3, entropy)
 
-        return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
+        return np.real((outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3)/(self.__standardDeviation**2) - outputmode[3] * entropy)
     
     def get_alpha_hat(self, Z_data, phi_bar_last_x, phi_bar_last_y):
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
@@ -205,7 +257,7 @@ class MRBLaT_Functions():
 def path_loss_speed(x, y, __x_r, __y_r, __A):
     r = np.sqrt((x - __x_r)**2 + (y - __y_r)**2)
     alpha = __A/r**2
-    return 1#__A
+    return 1
 
 @njit
 def partial_path_loss_x_speed(x, y, __x_r, __y_r, __A):
@@ -261,15 +313,15 @@ def sinc_speed(x, y, x_r, y_r, N_samples, chirp_Rate, f_sampling, freqs):
     temp = 2 * np.pi * (f_IF/f_sampling - freqs/N_samples)
     K = np.exp(1.j * (N_samples - 1) * temp / 2)
     sinc_fnc = K * np.sin(N_samples * temp / 2) / np.sin(temp / 2)
-    return sinc_fnc
+    return sinc_fnc  / N_samples
 
 @njit
 def partial_sinc_x_speed(x, y, X_R, Y_R, N_SAMPLES, CHRIP_RATE, F_SAMPLING, FREQS):
     partial_sinc = N_SAMPLES * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) - np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) ** 2 * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.cos(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) + np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * 1.j * (N_SAMPLES - 1) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * x - 2 * X_R) * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES))
-    return partial_sinc
+    return partial_sinc  / N_SAMPLES
 
 @njit
 def partial_sinc_y_speed(x, y, X_R, Y_R, N_SAMPLES, CHRIP_RATE, F_SAMPLING, FREQS):
     partial_sinc = N_SAMPLES * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * y - 2 * Y_R) * np.cos(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) - np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) ** 2 * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * y - 2 * Y_R) * np.cos(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) + np.sin(N_SAMPLES * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) / np.sin(np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES)) * 1.j * (N_SAMPLES - 1) * np.pi * CHRIP_RATE * ((x - X_R) ** 2 + (y - Y_R) ** 2) ** (-0.1e1 / 0.2e1) / c / F_SAMPLING * (2 * y - 2 * Y_R) * np.exp(1.j * (N_SAMPLES - 1) * np.pi * (2 * CHRIP_RATE * np.sqrt((x - X_R) ** 2 + (y - Y_R) ** 2) / c / F_SAMPLING - FREQS / N_SAMPLES))
-    return partial_sinc
+    return partial_sinc  / N_SAMPLES
 

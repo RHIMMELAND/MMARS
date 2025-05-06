@@ -35,7 +35,7 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = [(-20,20), (1,100), (0.00001, 100), (0.00001, 100)], fifo_length = None):   
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None):   
 
         """
         docstring
@@ -84,8 +84,7 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0[0], x0[1], (1,1,1,1), False), method='nelder-mead')
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
                 D_KL_phi_bar[N] = D_KL_result.x[:2,np.newaxis]
                 D_KL_phi_barbar[N] = np.array([[D_KL_result.x[2], 0], [0, D_KL_result.x[3]]])
                 alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0[0], x0[1])[0]
@@ -93,18 +92,22 @@ class Tracking():
 
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))
+                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
+                #intermediate = [x0[0], x0[1], D_KL_result.x[0], D_KL_result.x[1]]
+                #D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, intermediate, (0,0,0,0), (1,1,1,1), False), method='powell')
+                #print("powell:", D_KL_result.x)
 
-                phi_bar_bar_inv = 0
-                eps_barbar_inv_eps_bar_sum = 0
-                for k in range(self.__N_radar):
-                    phi_bar_bar_inv += eps_barbar_inv_list[k, N] 
-                    eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, N] @ eps_bar_list[k, N]
-                phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
-                phi_barbar_list[N] = phi_bar_bar
 
-                phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
-                phi_bar_list[N] = phi_bar
+            phi_bar_bar_inv = 0
+            eps_barbar_inv_eps_bar_sum = 0
+            for k in range(self.__N_radar):
+                phi_bar_bar_inv += eps_barbar_inv_list[k, N] 
+                eps_barbar_inv_eps_bar_sum += eps_barbar_inv_list[k, N] @ eps_bar_list[k, N]
+            phi_bar_bar = np.linalg.pinv(phi_bar_bar_inv)
+            phi_barbar_list[N] = phi_bar_bar
+
+            phi_bar = phi_bar_bar @ eps_barbar_inv_eps_bar_sum
+            phi_bar_list[N] = phi_bar
             for _ in range(N_iter):
                 for n in range(N - fifo_counter, N+1):
                     if N == 0:

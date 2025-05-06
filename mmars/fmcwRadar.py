@@ -359,5 +359,5 @@ def compute_S_signal(__S_signal, __tx_antennas, __rx_antennas, __f_IF, __f_sampl
     for tx_idx in range(__tx_antennas.shape[0]):
         for rx_idx in range(__rx_antennas.shape[0]):
             __S_signal[tx_idx, rx_idx, :, :] *= np.exp(1.j*__phase_diff_TX_RX[tx_idx,rx_idx])
-    __S_signal *= np.sqrt(__received_power)
+    #__S_signal *= np.sqrt(__received_power) # FUCK AF! DEN SKAL IKKE VÆRE HER!
     return __S_signal / __N_samples
