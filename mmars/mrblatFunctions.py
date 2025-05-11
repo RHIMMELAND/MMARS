@@ -31,7 +31,7 @@ class MRBLaT_Functions():
 
         self.__freqs = np.linspace(0, self.__N_samples, self.__N_samples, endpoint=False)[np.newaxis]
         self.__ds = np.arange(0, len(self.__tx_antennas) * len(self.__rx_antennas) * self.__wavelength/2, self.__wavelength/2)  # should be dynamic
-        self.__A = np.sqrt(self.__transmitPower * self.__gain * self.__radarCrossSection * self.__wavelength**2 / (4 * np.pi)**3)
+        self.__A = np.sqrt(self.__transmitPower * self.__gain * self.__wavelength**2 / (4 * np.pi)**3)
         self.__x_r = self.__position[0,0]
         self.__y_r = self.__position[0,1]
 
@@ -56,7 +56,7 @@ class MRBLaT_Functions():
         S_jacobian = np.hstack((S_jacobian_x, S_jacobian_y))
         return S_jacobian
     
-    def jacobian_S_A(self, epsilon):
+    def jacobian_S_A(self, epsilon, print_output=False):
 
         x, y = epsilon
         c  = 3e8
@@ -99,8 +99,99 @@ class MRBLaT_Functions():
         dsindy = (-(self.__N_samples*np.sin(x_f/2)*np.cos((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1) - (np.sin(x_f) * np.sin(x_f/2) * np.sin((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1)**2)*dx_fdy
 
         Jx = dAdx*(expfx*kernal) + A*(dexpdx*kernal + expfx*dsindx)
-        Jy = dAdy*expfx*kernal + A*dexpdy*kernal + A*expfx*dsindy
+        Jy = dAdy*(expfx*kernal) + A*(dexpdy*kernal + expfx*dsindy)
+        if print_output:
+            print(f"dAdx  : {(np.abs(dAdx))}     -     dAdx shape  : {dAdx.shape}")
+            print(f"expfx : {(np.abs(expfx))}     -     expfx shape : {expfx.shape}")
+            print(f"kernal: {(np.abs(kernal))}     -     kernal shape: {kernal.shape}")
+            print(f"A     : {(np.abs(A))}     -     A shape      : {A.shape}")
+            print(f"dexpdx: {(np.abs(dexpdx))}     -     dexpdx shape : {dexpdx.shape}")
+            print(f"dsindx : {(np.abs(dsindx))}     -     dsindx shape : {dsindx.shape}")
+            
 
+        Jx = Jx.flatten()[:, np.newaxis]
+        Jy = Jy.flatten()[:, np.newaxis]
+
+        J = np.hstack((Jx,Jy))/self.__N_samples
+        return J
+
+    def jacobian_S_H(self, epsilon, print_output=False):
+
+        x, y = epsilon
+        c  = 3e8
+        # theta = np.atan(x/y)
+        r = np.sqrt(x**2+y**2)
+        if r < 1:
+            r = 1
+        
+        # Array_pos = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas),2))
+        # for TX_idx in range(len(self.__tx_antennas)):
+        #     for RX_idx in range(len(self.__rx_antennas)):
+        #         Array_pos[TX_idx*len(self.__rx_antennas)+RX_idx] = self.__tx_antennas[TX_idx] + self.__rx_antennas[RX_idx]
+        # Delta = np.linalg.norm(Array_pos - Array_pos[0], axis=1)[:, np.newaxis]
+
+        phi = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), 1), dtype=np.complex128)
+        dphidx = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), 1), dtype=np.complex128)
+        dphidy = np.zeros((len(self.__tx_antennas)*len(self.__rx_antennas), 1), dtype=np.complex128)
+
+        for TX_idx in range(len(self.__tx_antennas)):
+            for RX_idx in range(len(self.__rx_antennas)):
+                X_TX = self.__tx_antennas[TX_idx, 0]
+                Y_TX = self.__tx_antennas[TX_idx, 1]
+                X_RX = self.__rx_antennas[RX_idx, 0]
+                Y_RX = self.__rx_antennas[RX_idx, 1]
+                X_TX0 = self.__tx_antennas[0, 0]
+                Y_TX0 = self.__tx_antennas[0, 1]
+                X_RX0 = self.__rx_antennas[0, 0]
+                Y_RX0 = self.__rx_antennas[0, 1]
+                phi[TX_idx*len(self.__rx_antennas)+RX_idx] = 2 * 1.j * np.pi * (np.sqrt((x - X_TX) ** 2 + (y - Y_TX) ** 2) + np.sqrt((x - X_RX) ** 2 + (y - Y_RX) ** 2)) / self.__wavelength - 2 * 1.j * np.pi * (np.sqrt((x - X_TX0) ** 2 + (y - Y_TX0) ** 2) + np.sqrt((x - X_RX0) ** 2 + (y - Y_RX0) ** 2)) / self.__wavelength
+                dphidx[TX_idx*len(self.__rx_antennas)+RX_idx] = 2 * 1.j * np.pi * (((x - X_TX) ** 2 + (y - Y_TX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_TX) / 2 + ((x - X_RX) ** 2 + (y - Y_RX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_RX) / 2) / self.__wavelength - 2 * 1.j * np.pi * (((x - X_TX0) ** 2 + (y - Y_TX0) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_TX0) / 2 + ((x - X_RX0) ** 2 + (y - Y_RX0) ** 2) ** (-0.1e1 / 0.2e1) * (2 * x - 2 * X_RX0) / 2) / self.__wavelength
+                dphidy[TX_idx*len(self.__rx_antennas)+RX_idx] = 2 * 1.j * np.pi * (((x - X_TX) ** 2 + (y - Y_TX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_TX) / 2 + ((x - X_RX) ** 2 + (y - Y_RX) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_RX) / 2) / self.__wavelength - 2 * 1.j * np.pi * (((x - X_TX0) ** 2 + (y - Y_TX0) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_TX0) / 2 + ((x - X_RX0) ** 2 + (y - Y_RX0) ** 2) ** (-0.1e1 / 0.2e1) * (2 * y - 2 * Y_RX0) / 2) / self.__wavelength
+        
+        
+        A = np.exp(phi)
+        dAdx = dphidx * np.exp(phi)
+        dAdy = dphidy * np.exp(phi)
+
+        f_IF =2*self.__chirp_Rate* r/c
+        # A = np.exp(1.j*2*np.pi*self.__wavelength**(-1)*np.sin(theta)*Delta)
+        # A = np.exp(2 * 1.j * np.pi * (np.sqrt((x - self.__tx_antennas[:,0]) ** 2 + (y - self.__tx_antennas[:,1]) ** 2) + np.sqrt((x - self.__rx_antennas[:,0]) ** 2 + (y - self.__rx_antennas[:,1]) ** 2)) / self.__wavelength)
+        x_f = 2*np.pi*(f_IF/self.__f_sampling-self.__freqs/self.__N_samples)
+
+        drdx = x/r
+        drdy = y/r
+
+        # dsinthetadx = y/np.sqrt(x**2/y**2+1)/r**2
+        # dsinthetady = -x/np.sqrt(x**2/y**2+1)/r**2
+
+        # dAdx = 1.j*2*np.pi*self.__wavelength**(-1)*Delta*A*dsinthetadx
+        # dAdy = 1.j*2*np.pi*self.__wavelength**(-1)*Delta*A*dsinthetady
+
+        df_IFdx = 2*self.__chirp_Rate/c*drdx
+        df_IFdy = 2*self.__chirp_Rate/c*drdy
+
+        dx_fdx = 2*np.pi*df_IFdx/self.__f_sampling
+        dx_fdy = 2*np.pi*df_IFdy/self.__f_sampling
+        expfx = np.exp(1.j*(self.__N_samples-1)*x_f/2)
+        kernal = np.sin(self.__N_samples*x_f/2)/np.sin(x_f/2)#*self.__A
+
+        dexpdx = np.exp(1.j*(self.__N_samples-1)*x_f/2)*1.j*(self.__N_samples-1)/2*dx_fdx
+        dexpdy = np.exp(1.j*(self.__N_samples-1)*x_f/2)*1.j*(self.__N_samples-1)/2*dx_fdy
+
+        dsindx = (-(self.__N_samples*np.sin(x_f/2)*np.cos((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1) - (np.sin(x_f) * np.sin(x_f/2) * np.sin((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1)**2)*dx_fdx
+        dsindy = (-(self.__N_samples*np.sin(x_f/2)*np.cos((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1) - (np.sin(x_f) * np.sin(x_f/2) * np.sin((self.__N_samples * x_f)/2))/(np.cos(x_f) - 1)**2)*dx_fdy
+
+        Jx = dAdx*(expfx*kernal) + A*(dexpdx*kernal + expfx*dsindx)
+        Jy = dAdy*(expfx*kernal) + A*(dexpdy*kernal + expfx*dsindy)
+        if print_output:
+            print(f"phi   : {(np.abs(phi))}     -     phi shape   : {phi.shape}")
+            # print(f"dAdx  : {(np.abs(dAdx))}     -     dAdx shape  : {dAdx.shape}")
+            # print(f"expfx : {(np.abs(expfx))}     -     expfx shape : {expfx.shape}")
+            # print(f"kernal: {(np.abs(kernal))}     -     kernal shape: {kernal.shape}")
+            # print(f"A     : {(np.abs(A))}     -     A shape      : {A.shape}")
+            # print(f"dexpdx: {(np.abs(dexpdx))}     -     dexpdx shape : {dexpdx.shape}")
+            # print(f"dsindx : {(np.abs(dsindx))}     -     dsindx shape : {dsindx.shape}")
+            
 
         Jx = Jx.flatten()[:, np.newaxis]
         Jy = Jy.flatten()[:, np.newaxis]
@@ -206,14 +297,9 @@ class MRBLaT_Functions():
             eps_bar_x = phi_bar_x_current
         if inputmode[1] == 0:
             eps_bar_y = phi_bar_y_current
-        # if inputmode[2] == 0:
-        #     eps_barbar_0 = eps_barbar_0
-        # if inputmode[3] == 0:
-        #     eps_barbar_1 = eps_barbar_1
 
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
-
         S_N_lack = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]
 
         # Generate the S signal with the new parameters
@@ -223,25 +309,27 @@ class MRBLaT_Functions():
         # Compute the alpha_hat value
         alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))
 
-        # print("MEAN S_n = ", np.mean(np.abs(S_N_lack)))
-        # print("MEAN Z_n = ", np.mean(np.abs(Z_data)))
-
         s_n_H = s_n.conj().T
 
-        term_1 = - 2* np.abs(alpha_hat_xy * (s_n_H @ Z_data))
-        term_2 = np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n)
+        term_1 = (- 2 * np.abs(alpha_hat_xy * (s_n_H @ Z_data)))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2)
+        term_2 = 0#(np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2)
         
-        jac = self.jacobian_S_A(np.array([eps_bar_x, eps_bar_y]))
+        jac = self.jacobian_S_H(np.array([eps_bar_x, eps_bar_y]))
         term_3_inner_prod = jac.conj().T @ jac
         
-        term_3 = np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0**2 + term_3_inner_prod[1,1]* eps_barbar_1**2) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        term_3 = (np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0 + term_3_inner_prod[1,1]* eps_barbar_1))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        # print(f"X : {eps_bar_x} Y: {eps_bar_y} E0: {(eps_barbar_0)} E1: {(eps_barbar_1)} - term_3: {(term_3_inner_prod[0,0]*eps_barbar_0 + term_3_inner_prod[1,1]* eps_barbar_1)}")
+        # print(f"T: {np.abs(S_N_lack.conj().T@Z_data)} N: {np.abs(S_N_lack.conj().T@S_N_lack)} - ALPHA: {alpha_hat_xy}")
+        # print(f"ENTROPY: {2/2 * np.log(2*np.pi*np.exp(1)) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)}")
+        # dddddddddd
+        
         k = 2
-        entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0**2 * eps_barbar_1**2)
+        entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
         
         if print_output:
             print(term_1, term_2, term_3, entropy)
 
-        return np.real((outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3)/(self.__standardDeviation**2) - outputmode[3] * entropy)
+        return np.real(outputmode[0]*term_1 + outputmode[1]*term_2 + outputmode[2]*term_3 - outputmode[3]*entropy)
     
     def get_alpha_hat(self, Z_data, phi_bar_last_x, phi_bar_last_y):
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
