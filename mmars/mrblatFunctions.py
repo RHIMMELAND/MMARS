@@ -60,7 +60,9 @@ class MRBLaT_Functions():
 
         x, y = epsilon
         c  = 3e8
-        theta = np.atan(x/y)
+        if y == 0:
+            y = 1e-100
+        theta = np.atan(x/y) #
         r = np.sqrt(x**2+y**2)
         if r < 1:
             r = 1
@@ -221,7 +223,7 @@ class MRBLaT_Functions():
         s_n = self.__radar_setup.get_S_signal.flatten()[:, np.newaxis]
         
         # Compute the alpha_hat value
-        alpha_hat_xy = np.abs(self.alpha_hat(S_N_lack, Z_data))
+        alpha_hat_xy = self.alpha_hat(S_N_lack, Z_data)
 
         # print("MEAN S_n = ", np.mean(np.abs(S_N_lack)))
         # print("MEAN Z_n = ", np.mean(np.abs(Z_data)))
@@ -234,14 +236,14 @@ class MRBLaT_Functions():
         jac = self.jacobian_S_A(np.array([eps_bar_x, eps_bar_y]))
         term_3_inner_prod = jac.conj().T @ jac
         
-        term_3 = np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0**2 + term_3_inner_prod[1,1]* eps_barbar_1**2) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        term_3 = np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0**2 + term_3_inner_prod[1,1]* eps_barbar_1**2) 
         k = 2
         entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0**2 * eps_barbar_1**2)
         
         if print_output:
             print(term_1, term_2, term_3, entropy)
 
-        return np.real((outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3)/(self.__standardDeviation**2) - outputmode[3] * entropy)
+        return np.real((outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3)/((self.__standardDeviation*np.sqrt(self.__N_samples))**2) - outputmode[3] * entropy)
     
     def get_alpha_hat(self, Z_data, phi_bar_last_x, phi_bar_last_y):
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)

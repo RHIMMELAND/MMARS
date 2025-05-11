@@ -74,8 +74,6 @@ class Tracking():
         mrblat_functions_list = []
         alpha_hat_list = []
         alpha_hat_S_list = []
-        D_KL_phi_bar = np.zeros((N_frames, 2, 1))
-        D_KL_phi_barbar = np.zeros((N_frames, 2, 2))
         
         for k in range(self.__N_radar):
             mrblat_functions_list.append(mmars.MRBLaT_Functions(self.__radar_parameters[k]))
@@ -85,14 +83,12 @@ class Tracking():
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
                 D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
-                D_KL_phi_bar[N] = D_KL_result.x[:2,np.newaxis]
-                D_KL_phi_barbar[N] = np.array([[D_KL_result.x[2], 0], [0, D_KL_result.x[3]]])
                 alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0[0], x0[1])[0]
                 alpha_hat_list.append(alpha_hat)
 
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
+                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2]**2,0,0,0], [0,1/D_KL_result.x[3]**2,0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
                 #intermediate = [x0[0], x0[1], D_KL_result.x[0], D_KL_result.x[1]]
                 #D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, intermediate, (0,0,0,0), (1,1,1,1), False), method='powell')
                 #print("powell:", D_KL_result.x)
@@ -155,11 +151,15 @@ class Tracking():
                     Lambda_a = 1/(beta + 1) 
                     Lambda_a = alpha*np.eye(4)*Lambda_a 
 
-            x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
+            PHI_NEXT = T@phi_bar_list[N]
+
+            x0 = [PHI_NEXT[0,0], PHI_NEXT[1,0], np.sqrt(phi_barbar_list[N,0,0]), np.sqrt(phi_barbar_list[N,1,1])]
+
+            #x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], np.sqrt(phi_barbar_list[N,0,0]), np.sqrt(phi_barbar_list[N,1,1])]
             alpha_hat_S_list.append(alpha_hat*mrblat_functions_list[k].get_S_signal(x0[0], x0[1]))
             if fifo_counter < fifo_length-1:
                 fifo_counter += 1
-        return phi_bar_list, phi_barbar_list, alpha_hat_list, alpha_hat_S_list, D_KL_phi_bar, D_KL_phi_barbar
+        return phi_bar_list, phi_barbar_list, alpha_hat_list, alpha_hat_S_list
     
     def run_kalman(self, T_frame, N_frames = None, bound = [(-100,100), (1,100), (0.00001, 100), (0.00001, 100)], music_buffer_bins = 4):
         """
