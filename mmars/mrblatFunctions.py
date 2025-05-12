@@ -26,7 +26,7 @@ class MRBLaT_Functions():
         self.__flatten_data_size = len(self.__tx_antennas) * len(self.__rx_antennas) * self.__N_samples
         self.__temp = 0
         
-        self.__lambda_z = np.eye(self.__flatten_data_size) * (self.__standardDeviation)**(-2)
+        self.__lambda_z = np.eye(self.__flatten_data_size) #* (self.__standardDeviation)**(-2)
         self.__lambda_z = csr_matrix(self.__lambda_z)
 
         self.__freqs = np.linspace(0, self.__N_samples, self.__N_samples, endpoint=False)[np.newaxis]
@@ -199,17 +199,13 @@ class MRBLaT_Functions():
         # return partial_sinc/self.__N_samples
     
     def D_KL(self, params, Z_data, phi_last, inputmode=(1,1,1,1), outputmode=(1,1,1,1), print_output=False):
-        phi_bar_last_x, phi_bar_last_y, phi_bar_bar_last_x, phi_bar_bar_last_y  = phi_last
+        phi_bar_last_x, phi_bar_last_y, phi_bar_x_current, phi_bar_y_current  = phi_last
         eps_bar_x, eps_bar_y, eps_barbar_0, eps_barbar_1 = params
 
         if inputmode[0] == 0:
-            eps_bar_x = phi_bar_last_x
+            eps_bar_x = phi_bar_x_current
         if inputmode[1] == 0:
-            eps_bar_y = phi_bar_last_y
-        if inputmode[2] == 0:
-            eps_barbar_0 = phi_bar_bar_last_x
-        if inputmode[3] == 0:
-            eps_barbar_1 = phi_bar_bar_last_y
+            eps_bar_y = phi_bar_y_current
 
         # Last estimate of the trajectory
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
@@ -224,20 +220,20 @@ class MRBLaT_Functions():
 
         s_n_H = s_n.conj().T
 
-        term_1 = -np.abs(alpha_hat_xy * (s_n_H @ self.__lambda_z @ Z_data))
-        term_2 = np.real(np.abs(alpha_hat_xy)**2 * s_n_H @ self.__lambda_z @ s_n)
+        term_1 = - 2 * np.abs(alpha_hat_xy * (s_n_H @ Z_data))
+        term_2 = np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n)
         
         jac = self.jacobian_S_A(np.array([eps_bar_x, eps_bar_y]))
-        term_3_inner_prod = np.real(jac.conj().T @ self.__lambda_z @ jac)
+        term_3_inner_prod = jac.conj().T @ jac
         
-        term_3 = np.abs(alpha_hat_xy)**2 * ((eps_barbar_0)*term_3_inner_prod[0,0] + (eps_barbar_1)*term_3_inner_prod[1,1]) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
+        term_3 = np.abs(alpha_hat_xy)**2 * (term_3_inner_prod[0,0]*eps_barbar_0 + term_3_inner_prod[1,1]* eps_barbar_1) #np.trace(np.array([[eps_barbar_0, 0], [0, eps_barbar_1]]) @ term_3_inner_prod)
         k = 2
         entropy = k/2 * np.log(2*np.pi*np.e) + 1/2*np.log(eps_barbar_0 * eps_barbar_1)
         
         if print_output:
             print(term_1, term_2, term_3, entropy)
 
-        return outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3 - outputmode[3] * entropy
+        return np.real((outputmode[0] * term_1 + outputmode[1] * term_2 + outputmode[2] * term_3)/((self.__standardDeviation*np.sqrt(self.__N_samples))**2) - outputmode[3] * entropy)
     
     def get_alpha_hat(self, Z_data, phi_bar_last_x, phi_bar_last_y):
         self.__radar_setup.generate_S_signal(phi_bar_last_x, phi_bar_last_y)
