@@ -312,7 +312,7 @@ class MRBLaT_Functions():
         s_n_H = s_n.conj().T
 
         term_1 = (- 2 * np.abs(alpha_hat_xy * (s_n_H @ Z_data)))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2)
-        term_2 = 0#(np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2)
+        term_2 = (np.abs(alpha_hat_xy)**2 * np.real(s_n_H @ s_n))/((self.__standardDeviation*np.sqrt(self.__N_samples))**2)
         
         jac = self.jacobian_S_H(np.array([eps_bar_x, eps_bar_y]))
         term_3_inner_prod = jac.conj().T @ jac

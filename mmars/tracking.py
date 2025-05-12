@@ -98,7 +98,6 @@ class Tracking():
 
                 if N in [-1]: # 1,2,3,4,5
                     ### HEAT MAP ###
-
                     heatmap_res = 101
 
                     heatmap_pos = np.zeros((heatmap_res, heatmap_res))
