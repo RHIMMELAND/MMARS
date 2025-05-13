@@ -35,7 +35,7 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None):   
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None, heatmap_list = [-1]):   
 
         """
         docstring
@@ -82,16 +82,105 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
-                alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0[0], x0[1])[0]
+                
+                x0k = x0.copy()
+                x0k[0] = x0[0] - self.__radar_parameters[k]["position"][0,0]
+                x0k[1] = x0[1] - self.__radar_parameters[k]["position"][0,1]
+
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0k, bounds = bound,  args=(data_fourier, x0k, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
+                alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0k[0], x0k[1])[0]
+
+                D_KL_result.x[0] = D_KL_result.x[0] + self.__radar_parameters[k]["position"][0,0]
+                D_KL_result.x[1] = D_KL_result.x[1] + self.__radar_parameters[k]["position"][0,1]
+
                 alpha_hat_list.append(alpha_hat)
 
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2]**2,0,0,0], [0,1/D_KL_result.x[3]**2,0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
+                eps_barbar_inv_list[k, N] = (np.array([[1/(D_KL_result.x[2]*2)**2,0,0,0], [0,1/(D_KL_result.x[3]*2)**2,0,0], [0,0,0,0], [0,0,0,0]]))
                 #intermediate = [x0[0], x0[1], D_KL_result.x[0], D_KL_result.x[1]]
                 #D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, intermediate, (0,0,0,0), (1,1,1,1), False), method='powell')
                 #print("powell:", D_KL_result.x)
+
+                if N in heatmap_list: # 
+                    ### HEAT MAP ###
+                    heatmap_res = 101
+
+                    heatmap_pos = np.zeros((heatmap_res, heatmap_res))
+                    heatmap_var = np.zeros((heatmap_res, heatmap_res))
+
+                    heatmap_pos_x = np.linspace(-15,15, heatmap_res)
+                    heatmap_pos_y = np.linspace(1,16, heatmap_res)
+                    heatmap_var_x = 10**(np.linspace(-200, 40, heatmap_res)/20)
+                    heatmap_var_y = 10**(np.linspace(-200, 40, heatmap_res)/20)
+
+                    for i in range(heatmap_res):
+                        for j in range(heatmap_res):
+                            heatmap_pos[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[j], heatmap_pos_y[i], x0k[2], x0k[3]], data_fourier, x0k, (1,1,1,1), (1,1,1,1), False)
+                            if np.isnan(heatmap_pos[i,j]):
+                                heatmap_pos[i,j] = np.inf
+                    argmin_heatmap_pos = np.unravel_index(np.argmin(heatmap_pos, axis=None), heatmap_pos.shape)
+
+                    for i in range(heatmap_res):
+                        for j in range(heatmap_res):
+                            heatmap_var[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[argmin_heatmap_pos[0]], heatmap_pos_y[argmin_heatmap_pos[1]], heatmap_var_x[j], heatmap_var_y[i]], data_fourier, x0, (1,1,1,1), (1,1,1,1), False)
+                    argmin_heatmap_var = np.unravel_index(np.argmin(heatmap_var, axis=None), heatmap_var.shape)
+
+                    intermediate = [x0k[0], x0k[1], heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]]]
+                    initial_guess = [heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]], heatmap_var_x[argmin_heatmap_var[1]], heatmap_var_y[argmin_heatmap_var[0]]]
+                    D_KL_nelder_mead = minimize(mrblat_functions_list[k].D_KL, initial_guess, bounds = bound,  args=(data_fourier, intermediate, (0,0,1,1), (1,1,1,1), False), method='Nelder-mead', tol=1e-10)
+                    D_KL_DE = differential_evolution(mrblat_functions_list[k].D_KL, bound, args=(data_fourier, intermediate, (1,1,1,1), (1,1,1,1), False), maxiter=1000, popsize=10, disp=False)
+                    D_KL_L_BFGS_B = minimize(mrblat_functions_list[k].D_KL, initial_guess, bounds = bound,  args=(data_fourier, intermediate, (0,0,1,1), (1,1,1,1), False), method='L-BFGS-B', tol=1e-10)
+
+                    fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+                    p0 = ax[0].pcolormesh(heatmap_pos_x, heatmap_pos_y, heatmap_pos, shading='auto')
+                    fig.colorbar(p0, ax=ax[0])
+                    ax[0].scatter(heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]], color='red', marker='x', s=100, label='ARGMIN')
+                    print("ARGMIN:", heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]])
+                    ax[0].scatter(x0k[0], x0k[1], color='blue', marker='x', s=100, label='INITIAL')
+                    ax[0].scatter(D_KL_result.x[0], D_KL_result.x[1], color='green', marker='x', s=100, label='OPTIMISED DKL')
+                    ax[0].scatter(D_KL_DE.x[0], D_KL_DE.x[1], color='purple', marker='+', s=100, label='DE - POS')
+                    radar_point_1 = ax[0].scatter(self.__radar_parameters[k]["position"][0,0], self.__radar_parameters[k]["position"][0,1], c='purple', s=100, marker='o', zorder=3)
+                    radar_point_2 = ax[0].scatter(self.__radar_parameters[k]["position"][0,0], self.__radar_parameters[k]["position"][0,1], c='white', s=100, marker='1', zorder=3)
+                    radar_point_1.set_clip_on(False)
+                    radar_point_2.set_clip_on(False)
+                    
+                    ax[0].set_title(f'Position Heatmap (frame {N})')
+                    ax[0].set_xlabel('X Position (m)')
+                    ax[0].set_ylabel('Y Position (m)')
+                    ax[0].grid()
+                    ax[0].legend()
+                    
+                    p1 = ax[1].pcolormesh(heatmap_var_x, heatmap_var_y, 20*np.log10(heatmap_var-np.min(np.min(heatmap_var))), shading='auto')
+                    fig.colorbar(p1, ax=ax[1])
+                    ax[1].scatter(heatmap_var_x[argmin_heatmap_var[1]], heatmap_var_y[argmin_heatmap_var[0]], color='red', marker='x', s=100, label='ARGMIN')
+                    ax[1].scatter(x0[2], x0[3], color='blue', marker='x', s=100, label='INITIAL')
+                    ax[1].scatter(D_KL_result.x[2], D_KL_result.x[3], color='green', marker='x', s=100, label='OPTIMISED DKL')
+                    ax[1].scatter(D_KL_nelder_mead.x[2], D_KL_nelder_mead.x[3], color='yellow', marker='+', s=100, label='NELDER-MEAD - VAR')
+                    ax[1].scatter(D_KL_DE.x[2], D_KL_DE.x[3], color='purple', marker='+', s=100, label='DE - VAR')
+                    ax[1].scatter(D_KL_L_BFGS_B.x[2], D_KL_L_BFGS_B.x[3], color='orange', marker='+', s=100, label='L-BFGS-B - VAR')
+                    ax[1].set_title(f'Variance Heatmap (frame {N} - \sigma_x = {np.round(heatmap_var_x[argmin_heatmap_var[1]],6)} , \sigma_y = {np.round(heatmap_var_y[argmin_heatmap_var[0]],6)})')
+                    ax[1].set_xlabel('X Variance (m)')
+                    ax[1].set_ylabel('Y Variance (m)')
+                    ax[1].set_xscale('log')
+                    ax[1].set_yscale('log')
+                    ax[1].grid()
+                    ax[1].legend()
+
+                    plt.tight_layout()
+                    plt.show()
+
+                    ### HEATY MAP END ###
+
+            if N == -1:
+                res = mrblat_functions_list[0].jacobian_S_H([0,10], print_output=True)
+                plt.figure()
+                plt.plot(np.abs(res[:,0]))
+                plt.show()
+
+                plt.figure()
+                plt.plot(np.abs(res[:,1]))
+                plt.show()
 
 
             phi_bar_bar_inv = 0
