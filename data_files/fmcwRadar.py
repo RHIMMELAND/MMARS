@@ -90,17 +90,19 @@ class FmcwRadar:
             self.__tx_antennas = np.array(([-12*(self.__wavelength/2), 0],
                                            [-8*(self.__wavelength/2), 0],
                                            [-4*(self.__wavelength/2), 0]))
-            self.__tx_antennas = self.__tx_antennas + self.__position
+            # self.__tx_antennas = self.__tx_antennas + self.__position
         else: 
-            self.__tx_antennas = self.__tx_antennas + self.__position
+            pass
+            # self.__tx_antennas = self.__tx_antennas + self.__position
         if self.__rx_antennas is None:
             self.__rx_antennas = np.array(([-(3/2)*(self.__wavelength/2), 0],
                                     [-(1/2)*(self.__wavelength/2), 0],
                                     [(1/2)*(self.__wavelength/2), 0],
                                     [(3/2)*(self.__wavelength/2), 0]))
-            self.__rx_antennas = self.__rx_antennas + self.__position
+            # self.__rx_antennas = self.__rx_antennas + self.__position
         else:
-            self.__rx_antennas = self.__rx_antennas + self.__position
+            pass
+            # self.__rx_antennas = self.__rx_antennas + self.__position
 
         # Check if the position is a 1x2 matrix
         if self.__position.shape != (1, 2):
@@ -139,23 +141,23 @@ class FmcwRadar:
                                  target_velocity_y=5
                                  ):
         
-        target_position = np.array([target_x, target_y])
+        target_position = np.array([[target_x, target_y]]) - self.__position
 
         # Compute the radial distance to the target
-        radial_distance = np.linalg.norm(self.__position - target_position, axis=1)
+        radial_distance = np.linalg.norm(target_position) 
 
         # Compute the radial velocity of the target
-        radial_velocity = np.dot(np.array([target_velocity_x, target_velocity_y]), (target_position - self.__position).flatten()) / radial_distance
+        radial_velocity = np.dot(np.array([target_velocity_x, target_velocity_y]), (target_position).flatten()) / radial_distance
 
         # Compute all distances between TX and RX antennas and the target
         distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
         for tx_idx in range(len(self.__tx_antennas)):
             for rx_idx in range(len(self.__rx_antennas)):
-                distances[tx_idx,rx_idx] = np.linalg.norm(self.__tx_antennas[tx_idx] - target_position) + np.linalg.norm(self.__rx_antennas[rx_idx] - target_position)
-
+                distances[tx_idx,rx_idx] = np.linalg.norm(target_position - self.__tx_antennas[tx_idx]) + np.linalg.norm(target_position - self.__rx_antennas[rx_idx])
         # Compute the phase difference between the antennas
+        distances = distances - np.max(np.max(distances[0,0]))
         phase_diff_TX_RX = 2*np.pi*distances/self.__wavelength
-        phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
+        # phase_diff_TX_RX -= phase_diff_TX_RX[0,0]
 
         # Compute the phase difference from the target moving during the chirp
         phase_from_velocity = 2 * np.pi * self.__f_carrier * 2 * (radial_velocity * self.__T_between_chirps) / self.__c 
@@ -195,21 +197,7 @@ class FmcwRadar:
         self.__target_position = np.array([target_x, target_y])
 
         # Compute the radial distance to the target
-<<<<<<< Updated upstream
-        self.__radial_distance = np.sqrt(np.sum((self.__position - self.__target_position)**2, axis=1))
-
-        # # Compute all distances between TX and RX antennas and the target
-        # self.__distances = np.zeros((len(self.__tx_antennas), len(self.__rx_antennas)))
-        # for tx_idx in range(len(self.__tx_antennas)):
-        #     for rx_idx in range(len(self.__rx_antennas)):
-        #         self.__distances[tx_idx,rx_idx] = np.sqrt(np.sum((self.__tx_antennas[tx_idx] - self.__target_position)**2)) + np.sqrt(np.sum((self.__rx_antennas[rx_idx] - self.__target_position)**2))
-
-        # # Compute the phase difference between the antennas
-        # self.__phase_diff_TX_RX = 2*np.pi*self.__distances/self.__wavelength
-        # self.__phase_diff_TX_RX -= self.__phase_diff_TX_RX[0,0]
-=======
         self.__radial_distance = np.linalg.norm(self.__target_position - 0) # self.__position
->>>>>>> Stashed changes
 
         self.__phase_diff_TX_RX = compute_phase_matrix(self.__tx_antennas, self.__rx_antennas, self.__target_position, self.__wavelength)
 
@@ -340,7 +328,7 @@ def compute_phase_matrix(__tx_antennas, __rx_antennas, __target_position, __wave
     __distances = np.zeros((len(__tx_antennas), len(__rx_antennas)))
     for tx_idx in range(len(__tx_antennas)):
         for rx_idx in range(len(__rx_antennas)):
-            __distances[tx_idx,rx_idx] = np.sqrt(np.sum((__tx_antennas[tx_idx] - __target_position)**2)) + np.sqrt(np.sum((__rx_antennas[rx_idx] - __target_position)**2))
+            __distances[tx_idx,rx_idx] = np.sqrt(np.sum((__target_position - __tx_antennas[tx_idx])**2)) + np.sqrt(np.sum((__target_position - __rx_antennas[rx_idx])**2))
 
     # Compute the phase difference between the antennas
     __phase_diff_TX_RX = 2*np.pi*__distances/__wavelength

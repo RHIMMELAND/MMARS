@@ -35,11 +35,7 @@ class Tracking():
     
         self.__N_radar = len(self.__iq_radar_data)
     
-<<<<<<< Updated upstream
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None):   
-=======
-    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None, heatmap_list = [-1], gt = [0, 0]):   
->>>>>>> Stashed changes
+    def run_mrblat(self, T_frame, N_iter = 100, N_frames = None, bound = ((-10, 10), (0, 50), (0.00001, 10), (0.00001, 10)), fifo_length = None, heatmap_list = [-1]):   
 
         """
         docstring
@@ -78,14 +74,9 @@ class Tracking():
         mrblat_functions_list = []
         alpha_hat_list = []
         alpha_hat_S_list = []
-<<<<<<< Updated upstream
-        D_KL_phi_bar = np.zeros((N_frames, 2, 1))
-        D_KL_phi_barbar = np.zeros((N_frames, 2, 2))
-=======
 
         intermediate_reult_pos = []
         intermediate_reult_var = []
->>>>>>> Stashed changes
         
         for k in range(self.__N_radar):
             mrblat_functions_list.append(mmars.MRBLaT_Functions(self.__radar_parameters[k]))
@@ -94,24 +85,27 @@ class Tracking():
             for k in range(self.__N_radar):
                 frame_iq_radar_data = self.__iq_radar_data[k][N,:,:,0,:]
                 data_fourier = np.fft.fft(frame_iq_radar_data, axis=-1).flatten()
-                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0, bounds = bound,  args=(data_fourier, x0, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
-                D_KL_phi_bar[N] = D_KL_result.x[:2,np.newaxis]
-                D_KL_phi_barbar[N] = np.array([[D_KL_result.x[2], 0], [0, D_KL_result.x[3]]])
-                alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0[0], x0[1])[0]
+                
+                x0k = x0.copy()
+                x0k[0] = x0[0] - self.__radar_parameters[k]["position"][0,0]
+                x0k[1] = x0[1] - self.__radar_parameters[k]["position"][0,1]
+
+                D_KL_result = minimize(mrblat_functions_list[k].D_KL, x0k, bounds = bound,  args=(data_fourier, x0k, (1,1,1,1), (1,1,1,1), False), method='nelder-mead', options={'xatol': 1e-10, 'disp': False})
+                alpha_hat = mrblat_functions_list[k].get_alpha_hat(data_fourier, x0k[0], x0k[1])[0]
+
+                D_KL_result.x[0] = D_KL_result.x[0] + self.__radar_parameters[k]["position"][0,0]
+                D_KL_result.x[1] = D_KL_result.x[1] + self.__radar_parameters[k]["position"][0,1]
+
                 alpha_hat_list.append(alpha_hat)
 
                 eps_bar = np.array([[D_KL_result.x[0]], [D_KL_result.x[1]], [0.], [0.]])
                 eps_bar_list[k, N] = eps_bar
-                eps_barbar_inv_list[k, N] = (np.array([[1/D_KL_result.x[2],0,0,0], [0,1/D_KL_result.x[3],0,0], [0,0,0,0], [0,0,0,0]]))#/(4*self.__N_radar)
+                eps_barbar_inv_list[k, N] = (np.array([[1/(D_KL_result.x[2])**2,0,0,0], [0,1/(D_KL_result.x[3])**2,0,0], [0,0,0,0], [0,0,0,0]]))
                 #intermediate = [x0[0], x0[1], D_KL_result.x[0], D_KL_result.x[1]]
                 #D_KL_result = minimize(mrblat_functions_list[k].D_KL, D_KL_result.x, bounds = bound,  args=(data_fourier, intermediate, (0,0,0,0), (1,1,1,1), False), method='powell')
                 #print("powell:", D_KL_result.x)
 
-<<<<<<< Updated upstream
-=======
                 if N in heatmap_list: # 
-                    # print(D_KL_result.x)
-
                     colors = ['red', 'purple', 'green', 'cyan', 'magenta']
 
                     ### HEAT MAP ###
@@ -121,16 +115,13 @@ class Tracking():
                     heatmap_var = np.zeros((heatmap_res, heatmap_res))
 
                     heatmap_pos_x = np.linspace(-22.48,22.48, heatmap_res)
-                    heatmap_pos_y = np.linspace(0,22.48, heatmap_res)
+                    heatmap_pos_y = np.linspace(1,22.48, heatmap_res)
                     heatmap_var_x = 10**(np.linspace(-200, 40, heatmap_res)/20)
                     heatmap_var_y = 10**(np.linspace(-200, 40, heatmap_res)/20)
 
                     for i in range(heatmap_res):
                         for j in range(heatmap_res):
-                            if heatmap_pos_x[j] == 0 and heatmap_pos_y[i] == 0:
-                                heatmap_pos[i,j] = np.inf
-                            else:
-                                heatmap_pos[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[j], heatmap_pos_y[i], x0k[2], x0k[3]], data_fourier, x0k, (1,1,1,1), (1,1,1,1), False)
+                            heatmap_pos[i,j] = mrblat_functions_list[k].D_KL([heatmap_pos_x[j], heatmap_pos_y[i], x0k[2], x0k[3]], data_fourier, x0k, (1,1,1,1), (1,1,1,1), False)
                             if np.isnan(heatmap_pos[i,j]):
                                 heatmap_pos[i,j] = np.inf
                             if np.sqrt(heatmap_pos_x[j]**2 + heatmap_pos_y[i]**2) > 22.4:
@@ -150,43 +141,40 @@ class Tracking():
 
                     fig, ax = plt.subplots(1, 1)
                     p0 = ax.pcolormesh(heatmap_pos_x, heatmap_pos_y, heatmap_pos, shading='auto', cmap='viridis')
-                    fig.colorbar(p0, ax=ax, label='A.U.')
-                    ax.scatter(heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]], color='red', marker='x', s=100, label='Global min.')
+                    fig.colorbar(p0, ax=ax)
+                    ax.scatter(heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]], color='red', marker='x', s=100, label='ARGMIN')
                     # print("ARGMIN:", heatmap_pos_x[argmin_heatmap_pos[1]], heatmap_pos_y[argmin_heatmap_pos[0]])
                     # ax.scatter(x0k[0], x0k[1], color='blue', marker='x', s=100, label='INITIAL')
-                    ax.scatter(D_KL_result.x[0] - self.__radar_parameters[k]["position"][0,0], D_KL_result.x[1] - self.__radar_parameters[k]["position"][0,1], color='orange', marker='x', s=100, label='Nelder-Mead')
-                    # ax.scatter(gt[0]+1.5, gt[1], color='black', marker='x', s=100, label='GT')
+                    ax.scatter(D_KL_result.x[0] - self.__radar_parameters[k]["position"][0,0], D_KL_result.x[1] - self.__radar_parameters[k]["position"][0,1], color='green', marker='x', s=100, label='Optimised KL divergence')
                     # ax.scatter(D_KL_DE.x[0], D_KL_DE.x[1], color='purple', marker='+', s=100, label='DE - POS')
-                    radar_point_1 = ax.scatter(0, 0, c=colors[k], s=100, marker='o', zorder=3)
-                    radar_point_2 = ax.scatter(0, 0, c='white', s=110, marker='1', zorder=3)
+                    radar_point_1 = ax.scatter(self.__radar_parameters[k]["position"][0,0], self.__radar_parameters[k]["position"][0,1], c=colors[k], s=100, marker='o', zorder=3)
+                    radar_point_2 = ax.scatter(self.__radar_parameters[k]["position"][0,0], self.__radar_parameters[k]["position"][0,1], c='white', s=100, marker='1', zorder=3)
                     radar_point_1.set_clip_on(False)
                     radar_point_2.set_clip_on(False)
                     
                     # ax.set_title(f'Position Heatmap (frame {N})')
                     ax.set_xlabel('$x$ [m]')
                     ax.set_ylabel('$y$ [m]')
-                    ax.set_xlim([-22.48, 22.48])
-                    ax.set_ylim([0, 22.48])
 
-                    plt.legend(loc='upper center', ncol=3)
+                    plt.legend(loc='upper center', ncol=2)
                     plt.tight_layout()
-                    plt.savefig(f'KL_mrblat_heatmap_pos_frame_{N}_radar_{k}.pdf',dpi=1000)
-                    plt.savefig(f'KL_mrblat_heatmap_pos_frame_{N}_radar_{k}.jpg',dpi=1000)
+                    plt.savefig(f'Figures/KL_mrblat_heatmap_pos_frame_{N}_radar_{k}.pdf')
+                    plt.savefig(f'Figures/KL_mrblat_heatmap_pos_frame_{N}_radar_{k}.jpg')
                     plt.show()
                     
 
                     fig, ax = plt.subplots(1, 1)
                     p1 = ax.pcolormesh(heatmap_var_x, heatmap_var_y, 20*np.log10(heatmap_var-np.min(np.min(heatmap_var))), shading='auto', cmap='viridis')
-                    fig.colorbar(p1, ax=ax, label='A.U.')
-                    ax.scatter(heatmap_var_x[argmin_heatmap_var[1]], heatmap_var_y[argmin_heatmap_var[0]], color='red', marker='x', s=100, label='Global min.')
+                    fig.colorbar(p1, ax=ax)
+                    ax.scatter(heatmap_var_x[argmin_heatmap_var[1]], heatmap_var_y[argmin_heatmap_var[0]], color='red', marker='x', s=100, label='ARGMIN')
                     # ax.scatter(x0[2], x0[3], color='blue', marker='x', s=100, label='INITIAL')
-                    ax.scatter(D_KL_result.x[2], D_KL_result.x[3], color='orange', marker='x', s=100, label='Nelder-Mead')
+                    ax.scatter(D_KL_result.x[2], D_KL_result.x[3], color='green', marker='x', s=100, label='Optimised KL divergence')
                     # ax.scatter(D_KL_nelder_mead.x[2], D_KL_nelder_mead.x[3], color='yellow', marker='+', s=100, label='NELDER-MEAD - VAR')
                     # ax.scatter(D_KL_DE.x[2], D_KL_DE.x[3], color='purple', marker='+', s=100, label='DE - VAR')
                     # ax.scatter(D_KL_L_BFGS_B.x[2], D_KL_L_BFGS_B.x[3], color='orange', marker='+', s=100, label='L-BFGS-B - VAR')
                     # ax.set_title(f'Variance Heatmap (frame {N} - \sigma_x = {np.round(heatmap_var_x[argmin_heatmap_var[1]],6)} , \sigma_y = {np.round(heatmap_var_y[argmin_heatmap_var[0]],6)})')
-                    ax.set_xlabel('$\\sigma_x$ [m]')
-                    ax.set_ylabel('$\\sigma_y$ [m]')
+                    ax.set_xlabel('$\sigma_x$ [m]')
+                    ax.set_ylabel('$\sigma_y$ [m]')
                     ax.set_xscale('log')
                     ax.set_yscale('log')
 
@@ -194,8 +182,8 @@ class Tracking():
                     plt.tight_layout()
 
                     # plt.savefig(f'Figures/KL_mrblat_heatmap_std_frame_{N}_radar_{k}.png')
-                    plt.savefig(f'Figures/KL_mrblat_heatmap_std_frame_{N}_radar_{k}.pdf',dpi=1000)
-                    plt.savefig(f'Figures/KL_mrblat_heatmap_std_frame_{N}_radar_{k}.jpg',dpi=1000)
+                    plt.savefig(f'Figures/KL_mrblat_heatmap_std_frame_{N}_radar_{k}.pdf')
+                    plt.savefig(f'Figures/KL_mrblat_heatmap_std_frame_{N}_radar_{k}.jpg')
                     plt.show()
                     
 
@@ -211,7 +199,6 @@ class Tracking():
                 plt.plot(np.abs(res[:,1]))
                 plt.show()
 
->>>>>>> Stashed changes
 
             phi_bar_bar_inv = 0
             eps_barbar_inv_eps_bar_sum = 0
@@ -227,7 +214,7 @@ class Tracking():
                 for n in range(N - fifo_counter, N+1):
                     if N == 0:
                         pass
-                    elif n == N - fifo_counter:
+                    elif n == 0:#N - fifo_counter:
                         phi_bar_bar_inv = T_T@G_inv_T@Lambda_a@G_inv@T
                         eps_barbar_inv_eps_bar_sum = (T_T@G_inv_T@Lambda_a@G_inv@T)@T_inv@phi_bar_list[n+1]
                         for k in range(self.__N_radar):
@@ -273,15 +260,15 @@ class Tracking():
             intermediate_reult_pos.append(phi_bar_list.copy())
             intermediate_reult_var.append(phi_barbar_list.copy())
 
-            x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], phi_barbar_list[N,0,0], phi_barbar_list[N,1,1]]
+            PHI_NEXT = T@phi_bar_list[N]
+
+            x0 = [PHI_NEXT[0,0], PHI_NEXT[1,0], np.sqrt(phi_barbar_list[N,0,0]), np.sqrt(phi_barbar_list[N,1,1])]
+
+            #x0 = [phi_bar_list[N,0,0], phi_bar_list[N,1,0], np.sqrt(phi_barbar_list[N,0,0]), np.sqrt(phi_barbar_list[N,1,1])]
             alpha_hat_S_list.append(alpha_hat*mrblat_functions_list[k].get_S_signal(x0[0], x0[1]))
             if fifo_counter < fifo_length-1:
                 fifo_counter += 1
-<<<<<<< Updated upstream
-        return phi_bar_list, phi_barbar_list, alpha_hat_list, alpha_hat_S_list, D_KL_phi_bar, D_KL_phi_barbar
-=======
         return phi_bar_list, phi_barbar_list, alpha_hat_list, alpha_hat_S_list, intermediate_reult_pos, intermediate_reult_var
->>>>>>> Stashed changes
     
     def run_kalman(self, T_frame, N_frames = None, bound = [(-100,100), (1,100), (0.00001, 100), (0.00001, 100)], music_buffer_bins = 4):
         """
